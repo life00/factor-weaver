@@ -9,6 +9,7 @@
     - attention
     - sentiment
   - data sample
+- RL assumptions
 - benchmarks
   - traditional models
   - traditional models with behavioral extension
@@ -80,4 +81,4 @@
     - Portfolio management using online reinforcement learning with adaptive exploration and Multi-task self-supervised representation
       - <https://doi.org/10.1016/j.asoc.2025.112846>
     - Portfolio construction using explainable reinforcement learning (2025)
-      - <https://doi.org/10.1016/j.asoc.2025.112846>
+      - <https://doi.org/10.1111/exsy.13667>

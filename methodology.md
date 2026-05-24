@@ -22,12 +22,14 @@
 ## Model architecture
 
 - encoder
-  - transformer or convolutional NN or autoencoder
+  - transformer or convolutional NN or autoencoder or deep belief network
 - output
-  - vector of 100 (+extra assets) weights $\sum w_i = 1$
+  - vector of 100 (+extra assets) weights $\sum w_i = 1$, no short-selling
 - RL type
   - actor-critic model
   - proximal policy optimization (PPO) training
+- explainable architecture?
+  - attention
 - crucial features
   - permutation equivariance
   - regularization
@@ -35,7 +37,7 @@
 - reward function
   - maximize sharpe or sortino ratio
   - accounts for transaction costs and slippage costs
-  - requires minimum $r_f+$ excess return requirement
+  - requires minimum $r_f+$ excess return requirement (based on risk preference)
     - otherwise penalizes
 
 ## Evaluation
