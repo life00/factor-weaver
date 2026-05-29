@@ -1,3 +1,4 @@
 - [ ] literature: identify most common papers and narrow the methodology
 - [ ] literature: identify a research gap (based on literature search) and define a clear research question
 - [ ] data: identify concrete data sources
+- [ ] admin: finish writing 2nd checkpoint and assignment
