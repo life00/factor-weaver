@@ -49,6 +49,9 @@
     - <https://arxiv.org/pdf/2509.16206>
 - related RL papers
   - state
+    - factors
+      - Navigating the factor zoo around the world: an institutional investor perspective
+        - <https://doi.org/10.1007/s11573-021-01035-y>
     - sentiment
       - DeepTrader: A Deep Reinforcement Learning Approach for Risk-Return Balanced Portfolio Management with Market Conditions Embedding (2021)
         - <https://doi.org/10.1609/aaai.v35i1.16144>
