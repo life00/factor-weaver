@@ -29,7 +29,10 @@
     - market info
   - behavioral
     - attention
+      - media coverage
+      - Google search intensity
     - sentiment
+      - positive/negative sentiment based on posts or news
 - extra assets
   - risk-free
     - price, technical, behavioral
@@ -50,7 +53,7 @@
 - technical
   - technical indicators can be calculated from prices
 - behavioral
-  - <https://arxiv.org/abs/2402.06698>
+  - <https://huggingface.co/datasets/Brianferrell787/financial-news-multisource>
   - <https://www.alphavantage.co/documentation/#intelligence>
 - fundamental
   - <https://www.sec.gov/data-research/sec-markets-data/financial-statement-data-sets>
