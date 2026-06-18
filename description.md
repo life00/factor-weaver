@@ -12,9 +12,9 @@ Machine Learning for Portfolio Management
 
 Portfolio management concerns the ongoing allocation of capital across assets to maximize risk-adjusted returns. Traditional approaches primarily rely on price data, potentially overlooking broader signals that influence asset prices and investor behavior.
 
-This thesis investigates whether incorporating fundamental and behavioral indicators (e.g., financial ratios, media attention, sentiment) alongside price and technical data can improve portfolio performance within a machine learning framework.
+This thesis aims to implement a machine learning framework that incorporates fundamental and behavioral indicators (e.g., financial ratios, media attention, sentiment) alongside price and technical data to improve portfolio performance. The objective is to evaluate whether the machine learning approach, together with these additional factors, is effective for portfolio management.
 
-The procedure involves: (1) collecting daily data for a broad equity universe over approximately 20 years, (2) developing a machine learning model that maps asset features to portfolio weights to optimize risk-adjusted returns, and (3) evaluating performance against standard baselines (e.g., equal-weight, minimum-variance). The exact model architecture and training procedure will be refined during the research.
+The procedure involves: (1) collecting daily data for a dynamic equity universe over approximately 10-20 years, (2) developing a machine learning model that utilizes asset features to inform portfolio weights to optimize risk-adjusted returns, and (3) evaluating performance against standard baselines (e.g., equal-weight, minimum-variance). The exact model architecture and training procedure will be refined during the research.
 
 ## Literature
 
