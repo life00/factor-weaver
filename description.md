@@ -18,9 +18,6 @@ The procedure involves: (1) collecting daily data for a dynamic equity universe 
 
 ## Literature
 
-- Enhancing portfolio management using artificial intelligence: literature review
-  - <https://doi.org/10.3389/frai.2024.1371502>
-- Navigating the factor zoo around the world: an institutional investor perspective
-  - <https://doi.org/10.1007/s11573-021-01035-y>
-- A taxonomy of literature reviews and experimental study of deep reinforcement learning in portfolio management
-  - <https://doi.org/10.1007/s10462-024-11066-w>
+- Sutiene, K., Schwendner, P., Sipos, C., Lorenzo, L., Mirchev, M., Lameski, P., Kabasinskas, A., Tidjani, C., Ozturkkal, B., & Cerneviciene, J. (2024). Enhancing portfolio management using artificial intelligence: Literature review. _Frontiers in Artificial Intelligence_, _7_. <https://doi.org/10.3389/frai.2024.1371502>
+- Bartram, S. M., Lohre, H., Pope, P. F., & Ranganathan, A. (2021). Navigating the factor zoo around the world: An institutional investor perspective. _Journal of Business Economics_, _91_(5), 655–703. <https://doi.org/10.1007/s11573-021-01035-y>
+- Rezaei, M., & Nezamabadi-Pour, H. (2025). A taxonomy of literature reviews and experimental study of deep reinforcement learning in portfolio management. _Artificial Intelligence Review_, _58_(3). <https://doi.org/10.1007/s10462-024-11066-w>
