@@ -62,6 +62,7 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
     - González-Cortés et al. (2024): transparent RL framework with explicit explanation of trading decisions; used if post-hoc XAI methods are needed
 - evaluation
   - benchmarks
+    - S&P500
     - DeMiguel et al. (2009): 1/N as the hardest baseline
     - Espiga-Fernández et al. (2024): benchmarks DQN, DDPG, PPO, SAC across multiple market signals; provides comparison methodology
 
