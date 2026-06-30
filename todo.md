@@ -1,7 +1,7 @@
 - [x] literature: identify most relevant papers and narrow the methodology
 - [x] literature: identify a research gap (based on literature search) and define a clear research question
-- [ ] data: consider adding other behavioral variables
 - data: compile dynamic equity universe
 - [ ] data: obtain all the raw data
 - [ ] data: define and implement methodology to compile media sentiment and attention based on raw articles
+- [ ] data: consider adding other behavioral variables: overconfidence (abnormal turnover), herding, anchoring, loss aversion (put-call ratio)
 - [ ] data: transform and aggregate all data together
