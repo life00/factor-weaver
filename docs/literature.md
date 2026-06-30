@@ -6,7 +6,13 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
 
 ## Theory
 
+- overview
+  - portfolio optimization techniques
+    - Gunjan & Bhattacharyya (2022): reviews classical, statistical, and ML/quantum-inspired portfolio optimization; situates the field from Markowitz to modern approaches
+    - Rezaei & Nezamabadi-Pour (2025): taxonomy of existing literature reviews + experimental study of DRL in portfolio management; identifies gaps in model evaluation and data handling
 - variable selection
+  - factors
+    - Bartram et al. (2021): surveys the factor zoo from an institutional perspective; motivates fundamental factor selection and dimensionality reduction
   - fundamental
     - Yan & Zheng (2017): mines 18,000+ fundamental signals; used to justify inclusion of fundamental ratios in the state space
   - behavioral
