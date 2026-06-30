@@ -9,7 +9,7 @@
   - in $t=0$ everything is in risk-free
 - stock selection
   - dynamic equity universe construction
-  - top ranked 50 companies in S&P100 in each period
+  - top ranked 50 companies in S&P500 in each period
     - if company falls below rank 50 $\to$ assets converted to risk-free
   - bankruptcies, mergers, delistings, etc. is handled appropriately
     - bankruptcies $\to$ loss

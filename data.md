@@ -10,9 +10,9 @@
 - period
   - 20 years
 - index
-  - all S&P100 companies in last 20 years
+  - all S&P500 companies in last 20 years
 - method
-  - rolling top 50 companies in S&P100
+  - rolling top 50 companies in S&P500
   - redefine list in each period
 
 ## Variables
@@ -36,7 +36,7 @@
 - extra assets
   - risk-free
     - price, technical, behavioral
-  - S&P100 stock index?
+  - S&P500 stock index?
     - price, technical, behavioral
 - market-wide indicators
   - VIX
