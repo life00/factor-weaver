@@ -15,7 +15,7 @@ Expected stack (implied by docs, not yet chosen): Python, PyTorch, Gymnasium, Fi
 | `docs/description.md` | Thesis objective, scope, literature list |
 | `docs/methodology.md` | Environment setup, model architecture, evaluation plan |
 | `docs/data.md` | Variables, sources (EODHD, Alpha Vantage, SEC EDGAR, HuggingFace) |
-| `docs/literature.md` | ~87 annotated references organized by category |
+| `docs/literature.md` | 24 annotated references organized by research point with inline citations |
 | `docs/todo.md` | Current pending items (literature gap, data pipeline, sentiment) |
 
 ## Conventions

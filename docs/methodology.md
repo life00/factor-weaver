@@ -24,14 +24,14 @@
 - encoder
   - transformer or convolutional NN or autoencoder or deep belief network
 - output
-  - vector of 100 (+extra assets) weights $\sum w_i = 1$, no short-selling
+  - vector of 50 weights $\sum w_i = 1$, no short-selling
 - RL type
   - actor-critic model
   - proximal policy optimization (PPO) training
-- explainable architecture?
+- explainable architecture
   - attention
 - crucial features
-  - permutation equivariance
+  - transformer cross-stock attention
   - regularization
     - dropout
 - reward function
