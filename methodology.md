@@ -46,7 +46,7 @@
   - RL-specific
   - financial
     - return, sharpe, sortino
-    - over the whole period of training (training is equivalent to testing period)
+    - train and test periods
 - benchmark
   - compare to more traditional portfolio optimization models and strategies
     - min variance
