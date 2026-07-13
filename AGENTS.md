@@ -1,12 +1,31 @@
 # Factor Weaver — Agent Guide
 
-**Status: planning stage.** Only documentation exists under `docs/`. No code, no dependencies, no build/test/lint infrastructure.
+**Status: scaffolding done.** Directory structure in place. No code beyond `__init__.py` stubs.
 
 ## Project
 
 Master's thesis: RL framework for portfolio management integrating price, technical, fundamental, and behavioral (attention & sentiment) features. Dynamic top-50 S&P500 universe, actor-critic via PPO, no short-selling, Sharpe maximization under transaction costs.
 
 Expected stack (implied by docs, not yet chosen): Python, PyTorch, Gymnasium, FinRL-family libs.
+
+## Repository structure
+
+```
+src/factor_weaver/
+├── universe/        # S&P500 constituents, top-50 ranking
+├── features/        # data loading, feature engineering, transforms
+├── env/             # Gymnasium environment, reward functions
+├── models/          # torch modules (encoder, actor, critic)
+├── agents/          # RL training (PPO)
+├── evaluation/      # backtesting, benchmarks, metrics
+└── utils/           # financial math, data IO helpers
+
+config/              # YAML configs (data paths, env params, model hparams)
+data/                # gitignored — static (constituents), features (processed), external
+scripts/             # CLI entrypoints (prepare_universe, prepare_features, train, evaluate)
+experiments/         # run outputs (logs, checkpoints, results)
+tests/
+```
 
 ## Key files
 
@@ -16,14 +35,19 @@ Expected stack (implied by docs, not yet chosen): Python, PyTorch, Gymnasium, Fi
 | `docs/methodology.md` | Environment setup, model architecture, evaluation plan                    |
 | `docs/data.md`        | Variables, sources (EODHD, Alpha Vantage, SEC EDGAR, HuggingFace)         |
 | `docs/literature.md`  | 24 annotated references organized by research point with inline citations |
-| `todo.md`             | Current pending items (literature gap, data pipeline, sentiment)          |
+| `todo.md`             | Current pending items                                                     |
+
+## Dependencies
+
+- Behavior/sentiment data lives in a separate repo (`market-behavior-archive`).
+- That repo produces parquet files with columns: `date, ticker, sentiment_score, attention_score, ...`.
+- This repo's `data.yaml` points to those files — the interface is just "parquet with aligned timestamps".
 
 ## Conventions
 
-- No code has been written yet. Do not look for entrypoints, tests, or config files that do not exist.
-- All decisions are still open (model architecture, data sources, exact training framework). Check `docs/todo.md` for current state.
 - When adding code, start with `pyproject.toml`, a dependency manifest, and a linter config before writing implementation.
-- The thesis will be written in LaTeX — likely co-located or in a sibling directory later.
+- The thesis is written in LaTeX in a separate directory (not here).
+- Ponytail mode active — prefer stdlib, fewest files, shortest working diff. No unrequested abstractions.
 
 ## Git
 
