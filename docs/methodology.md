@@ -16,8 +16,16 @@
     - mergers, delistings, $\to$ risk-free
 - transaction costs
   - calculate transaction fees, slippage (based on average daily traded volume?), $V_{t+1}$, $w_{i,t}^+$
-- libraries
-  - <https://github.com/AI4Finance-Foundation/FinRL> or <https://github.com/farama-foundation/gymnasium>
+- stack (tentative)
+  - RL environment: Gymnasium gives full control over step logic compared to FinRL
+  - Deep learning: PyTorch has strong RL ecosystem support and provides MultiheadAttention and Dirichlet distributions
+  - PPO: hand-rolled with CleanRL as reference since we need custom encoder and policy heads
+  - Encoder: cross-stock transformer with MultiheadAttention over the stock dimension
+  - Policy head: Dirichlet to enforce the simplex constraint (no short-selling), as described in Andre & Coqueret (2020)
+  - Data: pandas with parquet storage
+  - Config: YAML files
+  - Tracking: MLflow for experiment tracking and resumption
+  - Linting and typing: ruff and pyright
 
 ## Model architecture
 
