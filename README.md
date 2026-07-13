@@ -32,4 +32,4 @@ Python, PyTorch, Gymnasium, PPO (hand-rolled), cross-stock transformer, Dirichle
 └── docs/            # thesis planning docs (methodology, data, literature)
 ```
 
-Data pipeline: raw sources → `prepare_universe.py` builds rolling top-50 history → `prepare_features.py` aligns price/funda/behavior features → `train.py` trains PPO agent → `evaluate.py` benchmarks against 1/N and min-variance. Behavior features arrive as pre-computed parquet from the sibling repo `market-behavior-archive`.
+Data pipeline: raw sources → `prepare_universe.py` builds rolling top-50 history → `prepare_features.py` aligns price/funda/behavior features (forward-fill + staleness counter for fundamentals, time-decay for behavioral) → `train.py` trains PPO agent → `evaluate.py` benchmarks against 1/N and min-variance. Behavior features arrive as pre-computed parquet from the sibling repo `market-behavior-archive`.

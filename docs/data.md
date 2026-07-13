@@ -14,6 +14,9 @@
 - method
   - rolling top 50 companies in S&P500
   - redefine list in each period
+- alignment
+  - forward-fill fundamentals with per-group staleness counter
+  - time-decay for behavioral features
 
 ## Variables
 
