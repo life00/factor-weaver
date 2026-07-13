@@ -31,7 +31,6 @@ tests/
 
 | File                  | Purpose                                                                   |
 | --------------------- | ------------------------------------------------------------------------- |
-| `docs/description.md` | Thesis objective, scope, literature list                                  |
 | `docs/methodology.md` | Environment setup, model architecture, evaluation plan                    |
 | `docs/data.md`        | Variables, sources (EODHD, Alpha Vantage, SEC EDGAR, HuggingFace)         |
 | `docs/literature.md`  | 24 annotated references organized by research point with inline citations |
