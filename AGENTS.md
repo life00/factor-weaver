@@ -12,18 +12,18 @@ Tentative stack (under consideration): Python, PyTorch, Gymnasium (not FinRL), h
 
 ```
 src/factor_weaver/
-├── universe/        # S&P500 constituents, top-50 ranking
-├── features/        # data loading, feature engineering, transforms
-├── env/             # Gymnasium environment, reward functions
-├── models/          # torch modules (encoder, actor, critic)
-├── agents/          # RL training (PPO)
-├── evaluation/      # backtesting, benchmarks, metrics
-└── utils/           # financial math, data IO helpers
+├── cli.py            # argparse subcommand dispatcher (entry point)
+├── data/             # universe ranking, feature prep, dataset build, IO
+├── env.py            # Gymnasium environment, reward functions
+├── model.py          # torch modules (encoder + actor + critic)
+├── ppo.py            # PPO training loop
+├── evaluation/       # backtesting, benchmarks, metrics
+└── math.py           # financial math helpers
 
-config/              # YAML configs (data paths, env params, model hparams)
-data/                # gitignored — static (constituents), features (processed), external
-scripts/             # CLI entrypoints (prepare_universe, prepare_features, train, evaluate)
-experiments/         # run outputs (logs, checkpoints, results)
+config/               # YAML configs (data paths, env params, model hparams)
+data/                 # gitignored — raw, processed, train, test
+notebooks/            # exploratory notebooks (tracked, outputs stripped)
+experiments/          # run outputs (logs, checkpoints, results)
 tests/
 ```
 
@@ -40,7 +40,8 @@ tests/
 
 - Behavior/sentiment data lives in a separate repo (`market-behavior-archive`).
 - That repo produces parquet files with columns: `date, ticker, sentiment_score, attention_score, ...`.
-- This repo's `data.yaml` points to those files — the interface is just "parquet with aligned timestamps".
+- The sibling-repo parquet lands in `data/raw/behavioral/`; `data.yaml` points to it — the interface is just "parquet with aligned timestamps".
+- Data flows through four stages on disk: `data/raw/` (untouched vendor downloads + sibling-repo parquet) → `data/processed/` (cleaned/aligned, full date range) → `data/train/` + `data/test/` (env-ready tensors split by date window).
 
 ## Conventions
 

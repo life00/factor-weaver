@@ -13,23 +13,32 @@ Python, PyTorch, Gymnasium, PPO (hand-rolled), cross-stock transformer, Dirichle
 ## Repository structure
 
 ```
-├── config/          # YAML configs (data paths, env params, model hparams)
-├── data/            # gitignored; see data.yaml for sources
-│   ├── external/    #   behavior features from market-behavior-archive
-│   ├── features/    #   processed aligned feature parquet files
-│   └── static/      #   S&P500 constituents, market-cap histories
-├── scripts/         # CLI entrypoints (prepare, train, evaluate)
+├── config/             # YAML configs (data paths, env params, model hparams)
+├── data/               # gitignored; created on first data run
+│   ├── raw/            #   vendor downloads + sibling-repo behavioral parquet
+│   ├── processed/      #   cleaned/aligned features (ffill + staleness + decay)
+│   ├── train/          #   env-ready tensors for the training window
+│   └── test/           #   env-ready tensors for the test window
+├── notebooks/          # exploratory notebooks (tracked, outputs stripped)
 ├── src/factor_weaver/
-│   ├── universe/    #   S&P500 constituents & top-50 ranking
-│   ├── features/    #   data loading & feature engineering
-│   ├── env/         #   Gymnasium environment & reward functions
-│   ├── models/      #   torch modules (encoder, actor, critic)
-│   ├── agents/      #   RL training (PPO)
-│   ├── evaluation/  #   backtesting, benchmarks, metrics
-│   └── utils/       #   financial math, data IO
-├── experiments/     # run outputs (logs, checkpoints, results)
-├── tests/           # test suite
-└── docs/            # thesis planning docs (methodology, data, literature)
+│   ├── cli.py          #   argparse subcommand dispatcher (entry point)
+│   ├── data/           #   universe ranking, feature prep, dataset build, IO
+│   ├── env.py          #   Gymnasium environment & reward
+│   ├── model.py        #   encoder + actor + critic
+│   ├── ppo.py          #   PPO training loop
+│   ├── evaluation/     #   backtesting, benchmarks, metrics
+│   └── math.py         #   financial math helpers
+├── experiments/        # run outputs (logs, checkpoints, results)
+├── tests/              # test suite
+└── docs/               # thesis planning docs (methodology, data, literature)
 ```
 
-Data pipeline: raw sources → `prepare_universe.py` builds rolling top-50 history → `prepare_features.py` aligns price/funda/behavior features (forward-fill + staleness counter for fundamentals, time-decay for behavioral) → `train.py` trains PPO agent → `evaluate.py` benchmarks against 1/N and min-variance. Behavior features arrive as pre-computed parquet from the sibling repo `market-behavior-archive`.
+## Data pipeline
+
+raw sources → `prepare-universe` builds rolling top-50 history → `prepare-features`
+aligns price/funda/behavioral features (forward-fill + staleness counter for
+fundamentals, time-decay for behavioral) into `data/processed/` → `build-dataset`
+splits and tensorizes processed features into `data/train/` and `data/test/` →
+`train` trains the PPO agent → `evaluate` benchmarks against 1/N and min-variance.
+Behavior features arrive as pre-computed parquet from the sibling repo
+`market-behavior-archive`.
