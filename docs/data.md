@@ -1,19 +1,5 @@
 # Data
 
-## Data layout
-
-```
-data/
-├── raw/        # untouched vendor downloads + sibling-repo behavioral parquet
-├── processed/  # cleaned + aligned (ffill, staleness counter, time-decay); full date range
-├── train/      # env-ready tensors/arrays for the training window
-└── test/       # env-ready tensors/arrays for the test window
-```
-
-Transformations:
-- `raw → processed` via `prepare-features` (alignment, ffill, staleness, time-decay)
-- `processed → train/ + test/` via `build-dataset` (date-window split, tensorization for the env)
-
 ## Sample
 
 - criteria

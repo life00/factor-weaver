@@ -16,7 +16,7 @@ Python, PyTorch, Gymnasium, PPO (hand-rolled), cross-stock transformer, Dirichle
 ├── config/             # YAML configs (data paths, env params, model hparams)
 ├── data/               # gitignored; created on first data run
 │   ├── raw/            #   vendor downloads + sibling-repo behavioral parquet
-│   ├── processed/      #   cleaned/aligned features (ffill + staleness + decay)
+│   ├── clean/          #   cleaned/aligned features (ffill + staleness + decay)
 │   ├── train/          #   env-ready tensors for the training window
 │   └── test/           #   env-ready tensors for the test window
 ├── notebooks/          # exploratory notebooks (tracked, outputs stripped)
