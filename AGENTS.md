@@ -13,15 +13,16 @@ Tentative stack (under consideration): Python, PyTorch, Gymnasium (not FinRL), h
 ```
 src/factor_weaver/
 ├── cli.py            # argparse subcommand dispatcher (entry point)
-├── data/             # universe ranking, feature prep, dataset build, IO
-├── env.py            # Gymnasium environment, reward functions
-├── model.py          # torch modules (encoder + actor + critic)
-├── ppo.py            # PPO training loop
-├── evaluation/       # backtesting, benchmarks, metrics
-└── math.py           # financial math helpers
+├── pipelines/        # orchestrators: build_dataset, train, evaluate
+├── data/             # MODULE 1: parse_fundamentals, universe, edgar, prices, technicals, behavior, align
+├── rl/               # MODULE 2: env, model, ppo
+├── evaluation/       # MODULE 3: backtest, benchmarks
+└── math.py           # financial math helpers (shared)
 
 config/               # YAML configs (data paths, env params, model hparams)
 data/                 # gitignored — raw, processed, train, test
+docs/                 # planning docs + figures
+  figures/            #   PlantUML diagrams (data flow, architecture)
 notebooks/            # exploratory notebooks (tracked, outputs stripped)
 experiments/          # run outputs (logs, checkpoints, results)
 tests/
@@ -29,19 +30,21 @@ tests/
 
 ## Key files
 
-| File                  | Purpose                                                                   |
-| --------------------- | ------------------------------------------------------------------------- |
-| `docs/methodology.md` | Environment setup, model architecture, evaluation plan                    |
-| `docs/data.md`        | Variables, sources (EODHD, Alpha Vantage, SEC EDGAR, HuggingFace)         |
-| `docs/literature.md`  | 24 annotated references organized by research point with inline citations |
-| `todo.md`             | Current pending items                                                     |
+| File                          | Purpose                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `docs/methodology.md`         | Environment setup, model architecture, evaluation plan                    |
+| `docs/data.md`                | Variables, sources (financialdatadb, Yahoo Finance, SEC EDGAR, sibling)   |
+| `docs/literature.md`          | 24 annotated references organized by research point with inline citations |
+| `docs/figures/data_flow.puml` | Data flow: sources → processed tensors (with rendered PNG)               |
+| `docs/figures/architecture.puml` | Module architecture: subsystems + pipelines (with rendered PNG)       |
+| `todo.md`                     | Current pending items                                                     |
 
 ## Dependencies
 
-- Behavior/sentiment data lives in a separate repo (`market-behavior-archive`).
-- That repo produces parquet files with columns: `date, ticker, sentiment_score, attention_score, ...`.
-- The sibling-repo parquet lands in `data/raw/behavioral/`; `data.yaml` points to it — the interface is just "parquet with aligned timestamps".
-- Data flows through four stages on disk: `data/raw/` (untouched vendor downloads + sibling-repo parquet) → `data/processed/` (cleaned/aligned, full date range) → `data/train/` + `data/test/` (env-ready tensors split by date window).
+- Fundamental data: financialdatadb — raw xlsx files live in `data/raw/financialdatadb/` (26 files A-Z, each with one sheet per ticker; row 87 = Market Capitalization).
+- S&P500 constituent list: fetched from `fja05680/sp500` GitHub repo, cached locally.
+- Price data: Yahoo Finance daily OHLCV via `yfinance`.
+- EDGAR filing dates: direct HTTP to SEC EDGAR submissions API (no edgartools dep — just need the report date, not full document parsing).
 
 ## Conventions
 

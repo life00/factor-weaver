@@ -47,19 +47,16 @@
 
 ## Sources
 
-- <https://gemini.google.com/share/27db8be7a6bd>
-- paid platforms
-  - <http://eodhd.com/>
-  - <https://data.nasdaq.com/databases/SF1>
+- fundamental
+  - <https://financialdatadb.com/> — primary entry point: raw xlsx files (26 files A-Z, one sheet per ticker) live in `data/raw/financialdatadb/`
+- equity universe
+  - <https://github.com/fja05680/sp500> — S&P500 constituent list, compared with financialdatadb market cap (row 87) for top-50 selection
+- filing dates
+  - <https://www.sec.gov/data-research/sec-markets-data/financial-statement-data-sets> — EDGAR submissions API for 10-Q filing dates (anchors fundamental alignment, avoids look-ahead bias)
 - price
-  - daily prices can be easily found anywhere
+  - <https://finance.yahoo.com/> — daily OHLCV via yfinance
 - technical
-  - technical indicators can be calculated from prices
+  - computed from prices (moving averages, volume indicators)
 - behavioral
   - <https://huggingface.co/datasets/Brianferrell787/financial-news-multisource>
-  - <https://www.alphavantage.co/documentation/#intelligence>
-- fundamental
-  - <https://www.sec.gov/data-research/sec-markets-data/financial-statement-data-sets>
-    - <https://github.com/dgunning/edgartools>
-  - <https://www.alphavantage.co/documentation/#fundamentals>
-  - <https://financialdatadb.com/> (supposedly available for MUNI students)
+  - sibling repo `market-behavior-archive` (pre-computed sentiment/attention parquet)

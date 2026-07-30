@@ -1,0 +1,103 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 11
+skinparam package {
+  FontSize 12
+  FontStyle bold
+  BackgroundColor #EDF2F7
+  BorderColor #2B6CB0
+}
+skinparam component {
+  FontSize 10
+  BackgroundColor #E8F4FD
+  BorderColor #2B6CB0
+}
+skinparam arrow {
+  Color #4A5568
+  FontSize 9
+}
+skinparam rectangle {
+  BackgroundColor #FEFCBF
+  BorderColor #D69E2E
+  FontSize 11
+}
+
+package "factor_weaver" {
+
+  rectangle cli as "cli.py\nargparse dispatcher"
+
+  package "pipelines" as pipelines {
+    rectangle build_dataset as "build_dataset\nsteps 1-8"
+    rectangle train as "train\nRL loop"
+    rectangle evaluate as "evaluate\nbacktest"
+  }
+
+  package "data" as data_pkg {
+    rectangle parse_fund as "parse_fundamentals"
+    rectangle universe as "universe"
+    rectangle edgar as "edgar"
+    rectangle prices as "prices"
+    rectangle technicals as "technicals"
+    rectangle behavior as "behavior"
+    rectangle align as "align"
+  }
+
+  package "rl" {
+    rectangle env as "env\nGymnasium env"
+    rectangle model as "model\nencoder + actor/critic"
+    rectangle ppo as "ppo\ntraining loop"
+  }
+
+  package "evaluation" as eval_pkg {
+    rectangle backtest as "backtest"
+    rectangle benchmarks as "benchmarks"
+  }
+
+  rectangle math as "math\nfinancial helpers"
+
+}
+
+cli --> build_dataset : run
+cli --> train : run
+cli --> evaluate : run
+
+build_dataset --> parse_fund
+build_dataset --> universe
+build_dataset --> edgar
+build_dataset --> prices
+build_dataset --> technicals
+build_dataset --> behavior
+build_dataset --> align
+
+train --> env
+train --> model
+train --> ppo
+ppo --> env
+ppo --> model
+
+evaluate --> backtest
+evaluate --> benchmarks
+
+env --> math
+backtest --> math
+
+note bottom of pipelines
+  Each pipeline is a thin orchestrator.
+  Data pipeline: --from-step N resumes
+  from cached parquet.
+end note
+
+note right of data_pkg
+  Disk is the orchestrator.
+  Each step writes parquet,
+  next step reads it.
+end note
+
+note right of rl
+  Clean boundary:
+  consumes aligned.parquet,
+  doesn't know how it was built.
+end note
+
+@enduml

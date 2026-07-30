@@ -1,0 +1,93 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 11
+skinparam component {
+  FontSize 11
+  BackgroundColor #E8F4FD
+  BorderColor #2B6CB0
+}
+skinparam database {
+  FontSize 10
+  BackgroundColor #F0FFF0
+  BorderColor #38A169
+}
+skinparam actor {
+  BorderColor #805AD5
+  BackgroundColor #F3E8FF
+}
+skinparam arrow {
+  Color #4A5568
+  FontSize 9
+}
+
+actor "financialdatadb\n(xlsx, 26 files)" as fdb
+actor "S&P500 list\n(fja05680/sp500)" as sp500
+actor "SEC EDGAR\n(filings API)" as edgar
+actor "Yahoo Finance\n(yfinance)" as yf
+actor "market-behavior\n(sibling repo)" as beh
+
+database "data/raw/" as raw
+
+rectangle "parse_fundamentals\nxlsx → long parquet" as parse_fundamentals
+rectangle "build_universe\ntop-50 S&P500" as build_universe
+rectangle "fetch_filing_dates\nSEC submissions" as fetch_filing_dates
+rectangle "fetch_prices\nOHLCV daily" as fetch_prices
+rectangle "compute_technicals\nrolling indicators" as compute_technicals
+rectangle "load_behavior\nsentiment/attention" as load_behavior
+rectangle "align_dataset\nEDGAR-anchored merge" as align_dataset
+
+database "fundamentals\n.parquet" as fund_pq
+database "universe\n.parquet" as univ_pq
+database "filing_dates\n.parquet" as fd_pq
+database "prices\n.parquet" as price_pq
+database "technicals\n.parquet" as tech_pq
+database "behavior\n.parquet" as beh_pq
+database "aligned\n.parquet" as align_pq
+
+database "data/train/" as train
+database "data/test/" as test
+
+fdb --> raw
+sp500 --> raw
+edgar --> raw
+yf --> raw
+beh --> raw
+
+raw --> parse_fundamentals
+parse_fundamentals --> fund_pq
+
+fund_pq --> build_universe
+sp500 --> build_universe : cached
+build_universe --> univ_pq
+
+univ_pq --> fetch_filing_dates
+fetch_filing_dates --> fd_pq
+
+univ_pq --> fetch_prices
+fetch_prices --> price_pq
+
+price_pq --> compute_technicals
+compute_technicals --> tech_pq
+
+raw --> load_behavior
+load_behavior --> beh_pq
+
+fund_pq --> align_dataset
+fd_pq --> align_dataset
+price_pq --> align_dataset
+tech_pq --> align_dataset
+beh_pq --> align_dataset
+align_dataset --> align_pq
+
+align_pq --> train : split
+align_pq --> test : split
+
+note right of align_dataset
+  Forward-fill fundamentals anchored to EDGAR filing date
+  (no look-ahead bias)
+  Freshness counter for quarterly data
+  Time-decay for behavioral features
+end note
+
+@enduml
