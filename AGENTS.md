@@ -13,10 +13,10 @@ Tentative stack (under consideration): Python, PyTorch, Gymnasium (not FinRL), h
 ```
 src/factor_weaver/
 ├── cli.py            # argparse subcommand dispatcher (entry point)
-├── pipelines/        # orchestrators: build_dataset, train, evaluate
+├── workflows/        # orchestrators: build_dataset, train, evaluate
 ├── data/             # MODULE 1: parse_fundamentals, universe, edgar, prices, technicals, behavior, align
 ├── rl/               # MODULE 2: env, model, ppo
-├── evaluation/       # MODULE 3: backtest, benchmarks
+├── eval/             # MODULE 3: backtest, benchmarks
 └── math.py           # financial math helpers (shared)
 
 config/               # YAML configs (data paths, env params, model hparams)
@@ -36,7 +36,7 @@ tests/
 | `docs/data.md`                | Variables, sources (financialdatadb, Yahoo Finance, SEC EDGAR, sibling)   |
 | `docs/literature.md`          | 24 annotated references organized by research point with inline citations |
 | `docs/figures/data_flow.puml` | Data flow: sources → processed tensors (with rendered PNG)               |
-| `docs/figures/architecture.puml` | Module architecture: subsystems + pipelines (with rendered PNG)       |
+| `docs/figures/architecture.puml` | Module architecture: subsystems + workflows (with rendered PNG)      |
 | `todo.md`                     | Current pending items                                                     |
 
 ## Dependencies

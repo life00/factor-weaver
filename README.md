@@ -24,10 +24,10 @@ Python, PyTorch, Gymnasium, PPO (hand-rolled), cross-stock transformer, Dirichle
 ├── notebooks/          # exploratory notebooks (tracked, outputs stripped)
 ├── src/factor_weaver/
 │   ├── cli.py          #   argparse dispatcher (entry point)
-│   ├── pipelines/      #   orchestrators: build_dataset, train, evaluate
+│   ├── workflows/      #   orchestrators: build_dataset, train, evaluate
 │   ├── data/           #   MODULE 1: data pipeline (parse, universe, edgar, prices, technicals, behavior, align)
 │   ├── rl/             #   MODULE 2: env, model, ppo
-│   ├── evaluation/     #   MODULE 3: backtest, benchmarks
+│   ├── eval/           #   MODULE 3: backtest, benchmarks
 │   └── math.py         #   financial math helpers (shared)
 ├── experiments/        # run outputs (logs, checkpoints, results)
 ├── tests/

@@ -27,7 +27,7 @@ package "factor_weaver" {
 
   rectangle cli as "cli.py\nargparse dispatcher"
 
-  package "pipelines" as pipelines {
+  package "workflows" as workflows {
     rectangle build_dataset as "build_dataset\nsteps 1-8"
     rectangle train as "train\nRL loop"
     rectangle evaluate as "evaluate\nbacktest"
@@ -49,7 +49,7 @@ package "factor_weaver" {
     rectangle ppo as "ppo\ntraining loop"
   }
 
-  package "evaluation" as eval_pkg {
+  package "eval" as eval_pkg {
     rectangle backtest as "backtest"
     rectangle benchmarks as "benchmarks"
   }
@@ -82,7 +82,7 @@ evaluate --> benchmarks
 env --> math
 backtest --> math
 
-note bottom of pipelines
+note bottom of workflows
   Each pipeline is a thin orchestrator.
   Data pipeline: --from-step N resumes
   from cached parquet.
