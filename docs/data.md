@@ -50,11 +50,11 @@
 - fundamental
   - <https://financialdatadb.com/> — primary entry point: raw xlsx files (26 files A-Z, one sheet per ticker) live in `data/raw/financialdatadb/`
 - equity universe
-  - <https://github.com/fja05680/sp500> — S&P500 constituent list, compared with financialdatadb market cap (row 87) for top-50 selection
+  - LSEG data API — S&P500 constituent list, compared with financialdatadb market cap (row 87) for top-50 selection
 - filing dates
   - <https://www.sec.gov/data-research/sec-markets-data/financial-statement-data-sets> — EDGAR submissions API for 10-Q filing dates (anchors fundamental alignment, avoids look-ahead bias)
 - price
-  - <https://finance.yahoo.com/> — daily OHLCV via yfinance
+  - LSEG data API — daily OHLCV
 - technical
   - computed from prices (moving averages, volume indicators)
 - behavioral

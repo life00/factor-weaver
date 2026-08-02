@@ -38,7 +38,7 @@ tests/                # pytest checks (data-driven; skip if raw data absent)
 | File                             | Purpose                                                                   |
 | -------------------------------- | ------------------------------------------------------------------------- |
 | `docs/methodology.md`            | Environment setup, model architecture, evaluation plan                    |
-| `docs/data.md`                   | Variables, sources (financialdatadb, Yahoo Finance, SEC EDGAR, sibling)   |
+| `docs/data.md`                   | Variables, sources (financialdatadb, LSEG, SEC EDGAR, sibling)            |
 | `docs/literature.md`             | 24 annotated references organized by research point with inline citations |
 | `docs/figures/data_flow.puml`    | Data flow: sources → processed tensors (with rendered PNG)                |
 | `docs/figures/architecture.puml` | Module architecture: subsystems + workflows (with rendered PNG)           |
@@ -47,8 +47,8 @@ tests/                # pytest checks (data-driven; skip if raw data absent)
 ## Dependencies
 
 - Fundamental data: financialdatadb — raw xlsx files live in `data/raw/financialdatadb/` (26 files A-Z, each with one sheet per ticker; row 87 = Market Capitalization).
-- S&P500 constituent list: fetched from `fja05680/sp500` GitHub repo, cached locally.
-- Price data: Yahoo Finance daily OHLCV via `yfinance`.
+- S&P500 constituent list: fetched independently from LSEG data API, cached locally.
+- Price data: LSEG data API daily OHLCV.
 - EDGAR filing dates: direct HTTP to SEC EDGAR submissions API (no edgartools dep — just need the report date, not full document parsing).
 - Dev: pytest via `pip install -e .[dev]`; run checks with `pytest tests/`, `ruff check .`, `pyright src`.
 

@@ -37,7 +37,7 @@ Python, PyTorch, Gymnasium, PPO (hand-rolled), cross-stock transformer, Dirichle
 1. `parse-fundamentals` — financialdatadb xlsx → long parquet
 2. `universe` — top-50 S&P500 by market cap per quarter
 3. `edgar-filing-dates` — SEC filing dates (no look-ahead bias)
-4. `fetch-prices` — Yahoo Finance OHLCV
+4. `fetch-prices` — LSEG OHLCV
 5. `compute-technicals` — rolling indicators from prices
 6. `load-behavior` — sibling-repo sentiment/attention parquet
 7. `align` — EDGAR-anchored forward-fill + freshness + time-decay
