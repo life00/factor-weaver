@@ -20,7 +20,7 @@ src/factor_weaver/
 └── math.py           # financial math helpers (shared)
 
 config/               # YAML configs (data paths, env params, model hparams)
-data/                 # gitignored — raw, interim, train, test
+data/                 # gitignored — raw, interim, processed
 docs/                 # planning docs + figures
   figures/            #   PlantUML diagrams (data flow, architecture)
 notebooks/            # exploratory quarto notebooks

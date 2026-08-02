@@ -15,10 +15,9 @@ Python, PyTorch, Gymnasium, PPO (hand-rolled), cross-stock transformer, Dirichle
 ```
 ├── config/             # YAML configs (data paths, env params, model hparams)
 ├── data/               # gitignored; created on first data run
-│   ├── raw/            #   vendor downloads (financialdatadb xlsx, etc.)
-│   ├── interim/       #   one parquet per pipeline step (cacheable)
-│   ├── train/          #   env-ready tensors for the training window
-│   └── test/           #   env-ready tensors for the test window
+│   ├── raw/            #   original downloads/API output from vendors
+│   ├── interim/        #   cleaned and normalized data in parquet files
+│   └── processed/      #   final aligned output for RL training/testing
 ├── docs/               # thesis planning docs
 │   └── figures/        #   PlantUML diagrams (data flow, architecture)
 ├── notebooks/          # exploratory quarto notebooks
