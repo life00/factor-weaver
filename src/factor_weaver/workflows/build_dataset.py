@@ -9,6 +9,7 @@ from factor_weaver.data import (
     behavior,
     edgar,
     financialdatadb,
+    lseg,
     prices,
     split,
     technicals,
@@ -19,6 +20,9 @@ from factor_weaver.data import (
 STEPS: dict[str, Callable[[dict[str, Any]], None]] = {
     "parse-fundamentals": financialdatadb.parse_fundamentals,
     "parse-companies": financialdatadb.parse_companies,
+    "lseg-constituents": lseg.fetch_constituents,
+    "lseg-joiners-leavers": lseg.fetch_joiners_leavers,
+    "lseg-mapping": lseg.fetch_mapping,
     "universe": universe.build_universe,
     "edgar-filing-dates": edgar.fetch_filing_dates,
     "fetch-prices": prices.fetch_prices,

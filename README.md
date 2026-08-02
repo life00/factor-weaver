@@ -35,12 +35,15 @@ Python, PyTorch, Gymnasium, PPO (hand-rolled), cross-stock transformer, Dirichle
 ## Data pipeline
 
 1. `parse-fundamentals` — financialdatadb xlsx → long parquet
-2. `universe` — top-50 S&P500 by market cap per quarter
-3. `edgar-filing-dates` — SEC filing dates (no look-ahead bias)
-4. `fetch-prices` — LSEG OHLCV
-5. `compute-technicals` — rolling indicators from prices
-6. `load-behavior` — sibling-repo sentiment/attention parquet
-7. `align` — EDGAR-anchored forward-fill + freshness + time-decay
-8. `split` — train/test tensors by date window
+2. `lseg-constituents` — current S&P500 snapshot (LSEG chain RIC)
+3. `lseg-joiners-leavers` — S&P500 membership changes since 1994 (LSEG)
+4. `lseg-mapping` — RIC → ticker/name/PermID crosswalk for all LSEG RICs
+5. `universe` — top-50 S&P500 by market cap per quarter
+6. `edgar-filing-dates` — SEC filing dates (no look-ahead bias)
+7. `fetch-prices` — LSEG OHLCV
+8. `compute-technicals` — rolling indicators from prices
+9. `load-behavior` — sibling-repo sentiment/attention parquet
+10. `align` — EDGAR-anchored forward-fill + freshness + time-decay
+11. `split` — train/test tensors by date window
 
 Architecture and data-flow diagrams: [`docs/figures/`](docs/figures/).

@@ -2,3 +2,9 @@ financialdatadb:
   raw_dir: data/raw/financialdatadb/us_financials
   fundamentals_out: data/interim/fundamentals.parquet
   companies_out: data/interim/companies.parquet
+
+lseg:
+  start: "19940101"  # LSEG keeps S&P500 joiner/leaver records back to 1994
+  constituents_out: data/raw/lseg/constituents.parquet
+  joiners_leavers_out: data/raw/lseg/joiners_leavers.parquet
+  mapping_out: data/raw/lseg/ric_isin_ticker.parquet
