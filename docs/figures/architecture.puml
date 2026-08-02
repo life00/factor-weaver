@@ -34,7 +34,7 @@ package "factor_weaver" {
   }
 
   package "data" as data_pkg {
-    rectangle parse_fund as "parse_fundamentals"
+    rectangle parse_fund as "financialdatadb"
     rectangle universe as "universe"
     rectangle edgar as "edgar"
     rectangle prices as "prices"

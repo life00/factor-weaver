@@ -5,7 +5,7 @@ def align_dataset(cfg: dict) -> None:
     freshness counter for quarterly data,
     time-decay for behavioral features.
 
-    Reads: data/processed/*.parquet (fundamentals, filing_dates, prices, technicals, behavior)
-    Writes: data/processed/aligned.parquet (columns: date, ticker, *features)
+    Reads: data/interim/*.parquet (fundamentals, filing_dates, prices, technicals, behavior)
+    Writes: data/interim/aligned.parquet (columns: date, ticker, *features)
     """
     ...

@@ -16,12 +16,12 @@ Python, PyTorch, Gymnasium, PPO (hand-rolled), cross-stock transformer, Dirichle
 ├── config/             # YAML configs (data paths, env params, model hparams)
 ├── data/               # gitignored; created on first data run
 │   ├── raw/            #   vendor downloads (financialdatadb xlsx, etc.)
-│   ├── processed/      #   one parquet per pipeline step (cacheable)
+│   ├── interim/       #   one parquet per pipeline step (cacheable)
 │   ├── train/          #   env-ready tensors for the training window
 │   └── test/           #   env-ready tensors for the test window
 ├── docs/               # thesis planning docs
 │   └── figures/        #   PlantUML diagrams (data flow, architecture)
-├── notebooks/          # exploratory notebooks (tracked, outputs stripped)
+├── notebooks/          # exploratory quarto notebooks
 ├── src/factor_weaver/
 │   ├── cli.py          #   argparse dispatcher (entry point)
 │   ├── workflows/      #   orchestrators: build_dataset, train, evaluate

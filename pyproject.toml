@@ -8,12 +8,17 @@ version = "0.1.0"
 description = "RL framework for portfolio management integrating price, technical, fundamental, and behavioral features"
 requires-python = ">=3.10"
 dependencies = [
+    "openpyxl>=3.0",
     "pandas>=2.0",
+    "pyarrow>=14.0",
     "pyyaml>=6.0",
 ]
 
 [project.scripts]
 factor-weaver = "factor_weaver.cli:main"
+
+[project.optional-dependencies]
+dev = ["duckdb>=1.5", "pytest>=8"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

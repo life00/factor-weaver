@@ -1,0 +1,4 @@
+financialdatadb:
+  raw_dir: data/raw/financialdatadb/us_financials
+  fundamentals_out: data/interim/fundamentals.parquet
+  companies_out: data/interim/companies.parquet
