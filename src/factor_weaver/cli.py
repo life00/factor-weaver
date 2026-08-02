@@ -8,33 +8,22 @@ import yaml
 
 from factor_weaver.workflows import build_dataset, evaluate, train
 
-_WORKFLOWS: dict[str, Any] = {
-    "data": build_dataset,
-    "rl": train,
-    "eval": evaluate,
-}
-
 
 def _load_config() -> dict[str, Any]:
     path = Path("config/data.yaml")
-    if path.exists():
-        with open(path) as f:
-            return dict(yaml.safe_load(f) or {})
-    return {}
-
-
-def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="factor-weaver")
-    sub = parser.add_subparsers(dest="module", required=True)
-    for workflow in _WORKFLOWS.values():
-        workflow.add_arguments(sub)
-    return parser
+    if not path.is_file():
+        return {}
+    with open(path) as f:
+        return dict(yaml.safe_load(f) or {})
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = _build_parser()
+    parser = argparse.ArgumentParser(prog="factor-weaver")
+    sub = parser.add_subparsers(required=True)
+    for workflow in (build_dataset, train, evaluate):
+        workflow.add_arguments(sub)
     args = parser.parse_args(argv)
-    _WORKFLOWS[args.module].run(_load_config(), args)
+    args.func(_load_config(), args)
 
 
 if __name__ == "__main__":

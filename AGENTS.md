@@ -30,8 +30,8 @@ tests/                # pytest checks (data-driven; skip if raw data absent)
 
 ## Workflows
 
-- `cli.py` dispatches to workflow modules, each exposing `add_arguments(subparsers)` and `run(cfg, args)` (see `workflows/build_dataset.py` for the pattern).
-- `workflows/__init__.py` provides the shared step runner (`resolve` + `run_steps`) used by step-based workflows.
+- `cli.py` dispatches to workflow modules, each exposing `add_arguments(subparsers)` and `run(cfg, args)`; each subparser registers its own `run` via `set_defaults(func=...)` (see `workflows/build_dataset.py` for the pattern).
+- `build_dataset.py` orders pipeline steps in the `STEPS` dict (insertion order == run order); `factor-weaver data [steps ...]` runs the listed steps in order, or all if empty.
 
 ## Key files
 
