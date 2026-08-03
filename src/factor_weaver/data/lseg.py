@@ -43,8 +43,7 @@ def _credentials() -> dict[str, str]:
 @contextmanager
 def _session() -> Iterator[Any]:
     """Open a platform session (OAuth2 password grant); yields the lseg.data module."""
-    # lazy import: lseg-data is only needed when actually fetching
-    import lseg.data as ld  # pyright: ignore[reportMissingImports]
+    import lseg.data as ld
 
     creds = _credentials()
     session = ld.session.platform.Definition(
@@ -133,9 +132,9 @@ def fetch_mapping(cfg: dict[str, Any]) -> None:
             universe=rics,
             fields=["TR.TickerSymbol", "TR.CompanyName", "TR.OrganizationID"],
         )
-    df = df.assign(ric=df.index).rename(
+    df = df.rename(
         columns={
-            "RIC": "ric",
+            "Instrument": "ric",
             "Ticker Symbol": "ticker",
             "Company Name": "name",
             "Organization PermID": "permid",
