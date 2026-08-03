@@ -94,6 +94,9 @@ def _parse_fundamentals_file(path: Path, sheet_names: list[str] | None = None) -
     finally:
         wb.close()
     df = pd.DataFrame(records, columns=pd.Index(["ticker", "date", "section", "field", "value"]))
+    # tickers with the dot format are legacy duplicates of dashed format tickers
+    # those have to be dropped before normalization to avoid duplicate entries
+    df = df.loc[~df["ticker"].str.contains(".", regex=False)]
     df["ticker"] = df["ticker"].map(normalize_ticker)
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
