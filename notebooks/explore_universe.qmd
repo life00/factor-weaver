@@ -1,0 +1,114 @@
+---
+title: Explore universe
+jupyter: python3
+---
+
+Exploring the LSEG S&P500 membership data:
+
+- `data/raw/lseg/constituents.parquet`: current S&P500 constituents (anchor)
+- `data/raw/lseg/joiners_leavers.parquet`: historical membership events since 1994
+- `data/raw/lseg/ric_mapping.parquet`: RIC - ticker/name/PermID mapping (survives delisting/renames)
+
+Compared with financialdatadb (`data/interim/companies.parquet`, `data/interim/fundamentals.parquet`).
+
+
+```{python}
+import os
+import duckdb
+from pathlib import Path
+
+while not (Path.cwd() / "config" / "data.yaml").exists() and Path.cwd().parent != Path.cwd():
+    os.chdir("..")
+print(Path.cwd())
+```
+
+### Constituents sample
+
+```{python}
+duckdb.sql("SELECT * FROM 'data/raw/lseg/constituents.parquet' LIMIT 5")
+```
+
+### Joiners / leavers sample
+
+```{python}
+duckdb.sql("SELECT * FROM 'data/raw/lseg/joiners_leavers.parquet' LIMIT 5")
+```
+
+### RIC mapping sample
+
+```{python}
+duckdb.sql("SELECT * FROM 'data/raw/lseg/ric_mapping.parquet' LIMIT 5")
+```
+
+### Table info
+
+```{python}
+duckdb.sql("""
+SELECT 'constituents' AS table_name, count(*) AS rows,
+       count(DISTINCT ric) AS rics, NULL AS min_date, NULL AS max_date
+FROM 'data/raw/lseg/constituents.parquet'
+UNION ALL
+SELECT 'joiners_leavers', count(*), count(DISTINCT ric),
+       min(date)::VARCHAR, max(date)::VARCHAR
+FROM 'data/raw/lseg/joiners_leavers.parquet'
+UNION ALL
+SELECT 'ric_mapping', count(*), count(DISTINCT ric), NULL, NULL
+FROM 'data/raw/lseg/ric_mapping.parquet'
+""")
+```
+
+### Membership events by type
+
+```{python}
+duckdb.sql("""
+SELECT change, count(*) AS events
+FROM 'data/raw/lseg/joiners_leavers.parquet'
+GROUP BY change
+""")
+```
+
+### Membership events by year
+
+```{python}
+duckdb.sql("""
+SELECT year(date) AS year,
+       count(*) FILTER (WHERE change = 'Joiner') AS joiners,
+       count(*) FILTER (WHERE change = 'Leaver') AS leavers
+FROM 'data/raw/lseg/joiners_leavers.parquet'
+GROUP BY year
+ORDER BY year DESC
+LIMIT 8
+""")
+```
+
+### Current constituents with names
+
+```{python}
+duckdb.sql("""
+SELECT c.ric, m.ticker, m.name
+FROM 'data/raw/lseg/constituents.parquet' c
+JOIN 'data/raw/lseg/ric_mapping.parquet' m USING (ric)
+ORDER BY m.ticker
+LIMIT 10
+""")
+```
+
+### Mapping vs fundamentals
+
+Unique tickers in the mapping table against the financialdatadb fundamentals; note that 407 mapping rows have no ticker at all and cannot be checked:
+
+```{python}
+duckdb.sql("""
+WITH mapping AS (
+    SELECT DISTINCT ticker FROM 'data/raw/lseg/ric_mapping.parquet'
+    WHERE ticker IS NOT NULL
+),
+fund AS (
+    SELECT DISTINCT ticker FROM 'data/interim/fundamentals.parquet'
+)
+SELECT (SELECT count(*) FROM mapping) AS mapping_tickers,
+       (SELECT count(*) FROM mapping m WHERE m.ticker IN (SELECT * FROM fund)) AS in_fundamentals,
+       (SELECT count(*) FROM mapping m WHERE m.ticker NOT IN (SELECT * FROM fund)) AS not_in_fundamentals
+""")
+```
+
