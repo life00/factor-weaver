@@ -3,14 +3,11 @@ title: Explore universe
 jupyter: python3
 ---
 
-Exploring the LSEG S&P500 membership data:
+Exploring the processed universe data:
 
-- `data/raw/lseg/constituents.parquet`: current S&P500 constituents (anchor)
-- `data/raw/lseg/joiners_leavers.parquet`: historical membership events since 1994
-- `data/raw/lseg/ric_mapping.parquet`: RIC - ticker/name/PermID mapping (survives delisting/renames)
+- `data/interim/universe.parquet`: dynamic top-50 S&P500 universe per quarter; columns `quarter_end`, `ric`, `ticker`, `delisted`, `marketcap`, `rank` (see `src/factor_weaver/data/universe.py`)
 
-Compared with financialdatadb (`data/interim/companies.parquet`, `data/interim/fundamentals.parquet`).
-
+The membership is reconstructed backwards from the current S&P500 constituent snapshot using joiner/leaver events and ranked by as-of market cap. Delisted RICs have no LSEG ticker; their ticker is the base RIC symbol (e.g. TWX) and `delisted=True`.
 
 ```{python}
 import os
@@ -22,93 +19,67 @@ while not (Path.cwd() / "config" / "data.yaml").exists() and Path.cwd().parent !
 print(Path.cwd())
 ```
 
-### Constituents sample
-
-```{python}
-duckdb.sql("SELECT * FROM 'data/raw/lseg/constituents.parquet' LIMIT 5")
-```
-
-### Joiners / leavers sample
-
-```{python}
-duckdb.sql("SELECT * FROM 'data/raw/lseg/joiners_leavers.parquet' LIMIT 5")
-```
-
-### RIC mapping sample
-
-```{python}
-duckdb.sql("SELECT * FROM 'data/raw/lseg/ric_mapping.parquet' LIMIT 5")
-```
-
-### Table info
+### Sample
 
 ```{python}
 duckdb.sql("""
-SELECT 'constituents' AS table_name, count(*) AS rows,
-       count(DISTINCT ric) AS rics, NULL AS min_date, NULL AS max_date
-FROM 'data/raw/lseg/constituents.parquet'
-UNION ALL
-SELECT 'joiners_leavers', count(*), count(DISTINCT ric),
-       min(date)::VARCHAR, max(date)::VARCHAR
-FROM 'data/raw/lseg/joiners_leavers.parquet'
-UNION ALL
-SELECT 'ric_mapping', count(*), count(DISTINCT ric), NULL, NULL
-FROM 'data/raw/lseg/ric_mapping.parquet'
+select * from 'data/interim/universe.parquet' limit 10
 """)
 ```
 
-### Membership events by type
+### Delisted tickers
 
 ```{python}
 duckdb.sql("""
-SELECT change, count(*) AS events
-FROM 'data/raw/lseg/joiners_leavers.parquet'
-GROUP BY change
+SELECT delisted, count(*) AS rows, count(DISTINCT ric) AS rics
+FROM 'data/interim/universe.parquet'
+GROUP BY delisted
 """)
 ```
 
-### Membership events by year
+### Market cap / rank ranges
 
 ```{python}
 duckdb.sql("""
-SELECT year(date) AS year,
-       count(*) FILTER (WHERE change = 'Joiner') AS joiners,
-       count(*) FILTER (WHERE change = 'Leaver') AS leavers
-FROM 'data/raw/lseg/joiners_leavers.parquet'
-GROUP BY year
-ORDER BY year DESC
-LIMIT 8
+SELECT min(marketcap)::VARCHAR AS min_cap, median(marketcap)::VARCHAR AS median_cap,
+       max(marketcap)::VARCHAR AS max_cap, min(rank), max(rank)
+FROM 'data/interim/universe.parquet'
 """)
 ```
 
-### Current constituents with names
+### Distinct rics / tickers
 
 ```{python}
 duckdb.sql("""
-SELECT c.ric, m.ticker, m.name
-FROM 'data/raw/lseg/constituents.parquet' c
-JOIN 'data/raw/lseg/ric_mapping.parquet' m USING (ric)
-ORDER BY m.ticker
-LIMIT 10
+select count(distinct ric), count(distinct ticker) from 'data/interim/universe.parquet'
 """)
 ```
 
-### Mapping vs fundamentals
-
-Unique tickers in the mapping table against the financialdatadb fundamentals; note that 407 mapping rows have no ticker at all and cannot be checked:
+### Duplicate tickers
 
 ```{python}
 duckdb.sql("""
-WITH mapping AS (
-    SELECT DISTINCT ticker FROM 'data/raw/lseg/ric_mapping.parquet'
-    WHERE ticker IS NOT NULL
+SELECT ticker, count(DISTINCT ric) AS rics, count(*) AS rows,
+       array_agg(DISTINCT ric) AS ric_list
+FROM 'data/interim/universe.parquet'
+GROUP BY ticker
+HAVING count(DISTINCT ric) > 1
+ORDER BY rics DESC, ticker
+""")
+```
+
+### Coverage vs fundamentals
+
+```{python}
+duckdb.sql("""
+WITH universe AS (
+    SELECT DISTINCT ticker FROM 'data/interim/universe.parquet'
 ),
 fund AS (
     SELECT DISTINCT ticker FROM 'data/interim/fundamentals.parquet'
 )
-SELECT (SELECT count(*) FROM mapping) AS mapping_tickers,
-       (SELECT count(*) FROM mapping m WHERE m.ticker IN (SELECT * FROM fund)) AS in_fundamentals,
-       (SELECT count(*) FROM mapping m WHERE m.ticker NOT IN (SELECT * FROM fund)) AS not_in_fundamentals
+SELECT (SELECT count(*) FROM universe) AS universe_tickers,
+       (SELECT count(*) FROM universe u WHERE u.ticker IN (SELECT * FROM fund)) AS in_fundamentals,
+       (SELECT count(*) FROM universe u WHERE u.ticker NOT IN (SELECT * FROM fund)) AS not_in_fundamentals
 """)
 ```
-
