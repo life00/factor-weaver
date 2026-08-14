@@ -3,8 +3,8 @@
 ## Environment
 
 - total data
-  - ~2005-2025 daily
-  - $250 \times 20 = 5000$ steps
+  - ~1994-2026 daily (universe build starts 1994, see `config/data.yaml`)
+  - $250 \times 32 \approx 8000$ steps
 - initial state
   - in $t=0$ everything is in risk-free
 - stock selection

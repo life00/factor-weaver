@@ -1,6 +1,6 @@
 # Factor Weaver — Agent Guide
 
-**Status: scaffolding done.** Directory structure in place. No code beyond `__init__.py` stubs.
+**Status: data pipeline implemented** (financialdatadb parsing, LSEG retrieval, top-50 universe). RL/eval modules not yet implemented.
 
 ## Project
 
@@ -14,18 +14,18 @@ Tentative stack (under consideration): Python, PyTorch, Gymnasium (not FinRL), h
 src/factor_weaver/
 ├── cli.py            # argparse subcommand dispatcher (entry point)
 ├── workflows/        # orchestrators: build_dataset, train, evaluate
-├── data/             # MODULE 1: financialdatadb, universe, edgar, prices, technicals, behavior, align
+├── data/             # MODULE 1: financialdatadb, lseg, tickers, universe, edgar, prices, technicals, behavior, align, split
 ├── rl/               # MODULE 2: env, model, ppo
 ├── eval/             # MODULE 3: backtest, benchmarks
 └── math.py           # financial math helpers (shared)
 
 config/               # YAML configs (data paths, env params, model hparams)
-data/                 # gitignored — raw, interim, processed
+data/                 # tracked symlinks → /mnt/usb/factor-weaver/data/ (raw, interim, processed)
 docs/                 # planning docs + figures
   figures/            #   PlantUML diagrams (data flow, architecture)
 notebooks/            # exploratory quarto notebooks
 experiments/          # run outputs (logs, checkpoints, results)
-tests/                # pytest checks (data-driven; skip if raw data absent)
+tests/                # pytest checks (universe tests synthetic; xlsx tests skip if raw data absent)
 ```
 
 ## Workflows
@@ -39,15 +39,15 @@ tests/                # pytest checks (data-driven; skip if raw data absent)
 | -------------------------------- | ------------------------------------------------------------------------- |
 | `docs/methodology.md`            | Environment setup, model architecture, evaluation plan                    |
 | `docs/data.md`                   | Variables, sources (financialdatadb, LSEG, SEC EDGAR, sibling)            |
-| `docs/literature.md`             | 24 annotated references organized by research point with inline citations |
+| `docs/literature.md`             | 27 annotated references organized by research point with inline citations |
 | `docs/figures/data_flow.puml`    | Data flow: sources → processed tensors (with rendered PNG)                |
 | `docs/figures/architecture.puml` | Module architecture: subsystems + workflows (with rendered PNG)           |
 | `todo.md`                        | Current pending items                                                     |
 
 ## Dependencies
 
-- Fundamental data: financialdatadb — raw xlsx files live in `data/raw/financialdatadb/` (26 files A-Z, each with one sheet per ticker; row 87 = Market Capitalization).
-- S&P500 constituent list: fetched independently from LSEG data API, cached locally.
+- Fundamental data: financialdatadb — raw xlsx files live in `data/raw/financialdatadb/us_financials/` (26 `*_tickers.xlsx` files A-Z, one sheet per ticker; row 87 = Market Capitalization).
+- S&P500 constituent list, joiner/leaver history (since 1994), RIC mapping, and market cap (`TR.CompanyMarketCap`, fallback `TR.F.MktCap`): fetched from LSEG data API, cached in `data/raw/lseg/`; used for top-50 universe selection.
 - Price data: LSEG data API daily OHLCV.
 - EDGAR filing dates: direct HTTP to SEC EDGAR submissions API (no edgartools dep — just need the report date, not full document parsing).
 - Dev: pytest via `pip install -e .[dev]`; run checks with `pytest tests/`, `ruff check .`, `pyright src`.
@@ -61,4 +61,4 @@ tests/                # pytest checks (data-driven; skip if raw data absent)
 ## Git
 
 - No remote configured. Single local branch (`main`).
-- Commit history is all `docs: ...` prefixed.
+- Commit history mixes `docs:`, `feat(data):`, `fix`, `refactor`, and `chore` commits.

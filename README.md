@@ -14,7 +14,7 @@ Python, PyTorch, Gymnasium, PPO (hand-rolled), cross-stock transformer, Dirichle
 
 ```
 ├── config/             # YAML configs (data paths, env params, model hparams)
-├── data/               # gitignored; created on first data run
+├── data/               # symlinks → /mnt/usb/factor-weaver/data/ (raw, interim, processed)
 │   ├── raw/            #   original downloads/API output from vendors
 │   ├── interim/        #   cleaned and normalized data in parquet files
 │   └── processed/      #   final aligned output for RL training/testing
@@ -24,7 +24,7 @@ Python, PyTorch, Gymnasium, PPO (hand-rolled), cross-stock transformer, Dirichle
 ├── src/factor_weaver/
 │   ├── cli.py          #   argparse dispatcher (entry point)
 │   ├── workflows/      #   orchestrators: build_dataset, train, evaluate
-│   ├── data/           #   MODULE 1: data pipeline (parse, universe, edgar, prices, technicals, behavior, align)
+│   ├── data/           #   MODULE 1: data pipeline (parse, lseg, universe, edgar, prices, technicals, behavior, align, split)
 │   ├── rl/             #   MODULE 2: env, model, ppo
 │   ├── eval/           #   MODULE 3: backtest, benchmarks
 │   └── math.py         #   financial math helpers (shared)
@@ -35,15 +35,17 @@ Python, PyTorch, Gymnasium, PPO (hand-rolled), cross-stock transformer, Dirichle
 ## Data pipeline
 
 1. `parse-fundamentals` — financialdatadb xlsx → long parquet
-2. `lseg-constituents` — current S&P500 snapshot (LSEG chain RIC)
-3. `lseg-joiners-leavers` — S&P500 membership changes since 1994 (LSEG)
-4. `lseg-mapping` — RIC → ticker/name/PermID crosswalk for all LSEG RICs
-5. `universe` — top-50 S&P500 by market cap per quarter
-6. `edgar-filing-dates` — SEC filing dates (no look-ahead bias)
-7. `fetch-prices` — LSEG OHLCV
-8. `compute-technicals` — rolling indicators from prices
-9. `load-behavior` — sibling-repo sentiment/attention parquet
-10. `align` — EDGAR-anchored forward-fill + freshness + time-decay
-11. `split` — train/test tensors by date window
+2. `parse-companies` — financialdatadb company list → parquet
+3. `lseg-constituents` — current S&P500 snapshot (LSEG chain RIC)
+4. `lseg-joiners-leavers` — S&P500 membership changes since 1994 (LSEG)
+5. `lseg-mapping` — RIC → ticker/name/PermID crosswalk for all LSEG RICs
+6. `lseg-market-cap` — quarterly market cap via `TR.CompanyMarketCap` (fallback `TR.F.MktCap`)
+7. `universe` — top-50 S&P500 by market cap per quarter
+8. `edgar-filing-dates` — SEC filing dates (no look-ahead bias)
+9. `fetch-prices` — LSEG OHLCV
+10. `compute-technicals` — rolling indicators from prices
+11. `load-behavior` — sibling-repo sentiment/attention parquet
+12. `align` — EDGAR-anchored forward-fill + freshness + time-decay
+13. `split` — train/test tensors by date window
 
 Architecture and data-flow diagrams: [`docs/figures/`](docs/figures/).

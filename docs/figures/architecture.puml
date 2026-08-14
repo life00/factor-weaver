@@ -28,19 +28,22 @@ package "factor_weaver" {
   rectangle cli as "cli.py\nargparse dispatcher"
 
   package "workflows" as workflows {
-    rectangle build_dataset as "build_dataset\nsteps 1-8"
+    rectangle build_dataset as "build_dataset\n13 data steps"
     rectangle train as "train\nRL loop"
     rectangle evaluate as "evaluate\nbacktest"
   }
 
   package "data" as data_pkg {
     rectangle parse_fund as "financialdatadb"
+    rectangle lseg as "lseg"
+    rectangle tickers as "tickers"
     rectangle universe as "universe"
     rectangle edgar as "edgar"
     rectangle prices as "prices"
     rectangle technicals as "technicals"
     rectangle behavior as "behavior"
     rectangle align as "align"
+    rectangle split as "split"
   }
 
   package "rl" {
@@ -63,12 +66,14 @@ cli --> train : run
 cli --> evaluate : run
 
 build_dataset --> parse_fund
+build_dataset --> lseg
 build_dataset --> universe
 build_dataset --> edgar
 build_dataset --> prices
 build_dataset --> technicals
 build_dataset --> behavior
 build_dataset --> align
+build_dataset --> split
 
 train --> env
 train --> model
@@ -84,8 +89,8 @@ backtest --> math
 
 note bottom of workflows
   Each pipeline is a thin orchestrator.
-  Data pipeline: --from-step N resumes
-  from cached parquet.
+  Data pipeline: `factor-weaver data [steps ...]`
+  runs selected steps in order, empty = all.
 end note
 
 note right of data_pkg

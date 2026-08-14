@@ -30,6 +30,10 @@ database "data/raw/" as raw
 
 rectangle "parse_fundamentals\nxlsx → long parquet" as parse_fundamentals
 rectangle "parse_companies\n_US_listed_companies.xlsx → parquet" as parse_companies
+rectangle "fetch_constituents\nS&P500 snapshot" as fetch_constituents
+rectangle "fetch_joiners_leavers\nmembership changes since 1994" as fetch_joiners_leavers
+rectangle "fetch_mapping\nRIC → ticker/PermID" as fetch_mapping
+rectangle "fetch_market_cap\nquarterly, TR.CompanyMarketCap" as fetch_market_cap
 rectangle "build_universe\ntop-50 S&P500" as build_universe
 rectangle "fetch_filing_dates\nSEC submissions" as fetch_filing_dates
 rectangle "fetch_prices\nOHLCV daily" as fetch_prices
@@ -39,6 +43,10 @@ rectangle "align_dataset\nEDGAR-anchored merge" as align_dataset
 
 database "fundamentals\n.parquet" as fund_pq
 database "companies\n.parquet" as comp_pq
+database "constituents\n.parquet" as cons_pq
+database "joiners_leavers\n.parquet" as jl_pq
+database "ric_mapping\n.parquet" as map_pq
+database "market_cap\n.parquet" as cap_pq
 database "universe\n.parquet" as univ_pq
 database "filing_dates\n.parquet" as fd_pq
 database "prices\n.parquet" as price_pq
@@ -57,8 +65,22 @@ parse_fundamentals --> fund_pq
 raw --> parse_companies
 parse_companies --> comp_pq
 
-fund_pq --> build_universe
-lseg --> build_universe : cached
+raw --> fetch_constituents
+fetch_constituents --> cons_pq
+
+raw --> fetch_joiners_leavers
+fetch_joiners_leavers --> jl_pq
+
+raw --> fetch_mapping
+fetch_mapping --> map_pq
+
+raw --> fetch_market_cap
+fetch_market_cap --> cap_pq
+
+cons_pq --> build_universe
+jl_pq --> build_universe
+map_pq --> build_universe
+cap_pq --> build_universe
 build_universe --> univ_pq
 
 comp_pq --> fetch_filing_dates

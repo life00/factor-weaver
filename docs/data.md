@@ -8,9 +8,9 @@
 - frequency
   - daily
 - period
-  - 20 years
+  - 1994-2026 (universe build starts 1994, when LSEG joiner/leaver records begin)
 - index
-  - all S&P500 companies in last 20 years
+  - all S&P500 companies since 1994
 - method
   - rolling top 50 companies in S&P500
   - redefine list in each period
@@ -48,9 +48,9 @@
 ## Sources
 
 - fundamental
-  - <https://financialdatadb.com/> — primary entry point: raw xlsx files (26 files A-Z, one sheet per ticker) live in `data/raw/financialdatadb/`
+  - <https://financialdatadb.com/> — raw xlsx files (26 `*_tickers.xlsx` A-Z, one sheet per ticker) live in `data/raw/financialdatadb/us_financials/`
 - equity universe
-  - LSEG data API — S&P500 constituent list, compared with financialdatadb market cap (row 87) for top-50 selection
+  - LSEG data API — S&P500 constituent list, joiner/leaver history, RIC mapping; market cap via `TR.CompanyMarketCap` (fallback `TR.F.MktCap`) for top-50 selection
 - filing dates
   - <https://www.sec.gov/data-research/sec-markets-data/financial-statement-data-sets> — EDGAR submissions API for 10-Q filing dates (anchors fundamental alignment, avoids look-ahead bias)
 - price
