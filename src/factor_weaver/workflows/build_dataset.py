@@ -23,6 +23,7 @@ STEPS: dict[str, Callable[[dict[str, Any]], None]] = {
     "lseg-constituents": lseg.fetch_constituents,
     "lseg-joiners-leavers": lseg.fetch_joiners_leavers,
     "lseg-mapping": lseg.fetch_mapping,
+    "lseg-market-cap": lseg.fetch_market_cap,
     "universe": universe.build_universe,
     "edgar-filing-dates": edgar.fetch_filing_dates,
     "fetch-prices": prices.fetch_prices,
