@@ -9,3 +9,7 @@ lseg:
   joiners_leavers_out: data/raw/lseg/joiners_leavers.parquet
   mapping_out: data/raw/lseg/ric_mapping.parquet
   market_cap_out: data/raw/lseg/market_cap.parquet
+
+universe:
+  top_n: 50
+  out: data/interim/universe.parquet

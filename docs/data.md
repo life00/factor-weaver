@@ -60,3 +60,16 @@
 - behavioral
   - <https://huggingface.co/datasets/Brianferrell787/financial-news-multisource>
   - sibling repo `market-behavior-archive` (pre-computed sentiment/attention parquet)
+
+## Issues
+
+### Universe
+
+- **Joiner/leaver history starts with a baseline snapshot in 1994**: phantom "Joiner"
+  events for companies already in the index pre-1994. Top-50 universe should be unaffected
+- **No market cap for some retired RICs**: a few delisted RICs (`^`-suffixed)
+  return nothing for `TR.CompanyMarketCap` or `TR.F.MktCap`. Dropped from top-50 ranking in
+  their active quarters; only names near the 1999-2001 boundary are affected.
+- **Membership ~20 names short pre-2000**: the joiner/leaver file has ~20 more Leaver than
+  real Joiner events before 2000, so reconstructed membership counts 477-505 vs. ~500
+  (1994: 478). Top-50 universe should be unaffected.
