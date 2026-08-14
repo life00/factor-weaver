@@ -76,7 +76,7 @@ WITH universe AS (
     SELECT DISTINCT ticker FROM 'data/interim/universe.parquet'
 ),
 fund AS (
-    SELECT DISTINCT ticker FROM 'data/interim/fundamentals.parquet'
+    SELECT DISTINCT ticker FROM 'data/raw/financialdatadb/fundamentals.parquet'
 )
 SELECT (SELECT count(*) FROM universe) AS universe_tickers,
        (SELECT count(*) FROM universe u WHERE u.ticker IN (SELECT * FROM fund)) AS in_fundamentals,
