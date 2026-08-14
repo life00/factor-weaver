@@ -3,6 +3,7 @@
 - [x] project: directory structure
 - data
   - [x] obtain and clean financialdatadb fundamentals
-  - [ ] obtain and clean S&P500 constituents data from LSEG
-  - [ ] obtain and clean top 50 universe OHLCV data from LSEG
+  - [x] obtain and clean S&P500 constituents data from LSEG
+  - [x] build a top 50 universe
+  - [ ] obtain daily OHLCV data from LSEG
   - [ ] behavioral data...
