@@ -39,6 +39,11 @@ _MC_FALLBACK_TITLES = {"Date": "date", "Market Capitalization": "market_cap"}
 _MC_CHUNK = 250  # ponytail: keeps each datagrid call well under the 300s server timeout
 
 
+def _api_date(value: str | date) -> str:
+    """Format a config/ISO date as the YYYYMMDD the LSEG API expects."""
+    return f"{pd.Timestamp(value):%Y%m%d}"
+
+
 def _credentials() -> dict[str, str]:
     """Read LSEG credentials from .env (loaded into os.environ if present)."""
     load_dotenv()
@@ -104,8 +109,8 @@ def fetch_joiners_leavers(cfg: dict[str, Any]) -> None:
             universe=[".SPX"],
             fields=_JL_FIELDS,
             parameters={
-                "SDATE": c["start"],
-                "EDATE": date.today().strftime("%Y%m%d"),
+                "SDATE": _api_date(c["start"]),
+                "EDATE": _api_date(date.today()),
                 "IC": "B",
             },
         )
@@ -182,8 +187,8 @@ def fetch_market_cap(cfg: dict[str, Any]) -> None:
         )
     rics = list(pd.concat([pd.read_parquet(p)["ric"] for p in inputs]).dropna().drop_duplicates())
     params = {
-        "SDATE": c["start"],
-        "EDATE": date.today().strftime("%Y%m%d"),
+        "SDATE": _api_date(c["start"]),
+        "EDATE": _api_date(date.today()),
         "Frq": "Q",
     }
     chunks = [rics[i : i + _MC_CHUNK] for i in range(0, len(rics), _MC_CHUNK)]

@@ -4,7 +4,7 @@ financialdatadb:
   companies_out: data/raw/financialdatadb/companies.parquet
 
 lseg:
-  start: "19940101" # LSEG keeps S&P500 joiner/leaver records back to 1994
+  start: "1994-01-01" # LSEG keeps S&P500 joiner/leaver records back to 1994
   constituents_out: data/raw/lseg/constituents.parquet
   joiners_leavers_out: data/raw/lseg/joiners_leavers.parquet
   mapping_out: data/raw/lseg/ric_mapping.parquet
@@ -12,4 +12,6 @@ lseg:
 
 universe:
   top_n: 50
+  start: "1994-01-01"
+  end: "2026-01-01"
   out: data/interim/universe.parquet

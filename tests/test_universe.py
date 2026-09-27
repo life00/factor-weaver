@@ -80,13 +80,18 @@ def cfg(tmp_path):
     )
     return {
         "lseg": {
-            "start": "20200101",
+            "start": "2020-01-01",
             "constituents_out": f / "constituents.parquet",
             "joiners_leavers_out": f / "joiners_leavers.parquet",
             "mapping_out": f / "mapping.parquet",
             "market_cap_out": f / "market_cap.parquet",
         },
-        "universe": {"top_n": 2, "out": g / "universe.parquet"},
+        "universe": {
+            "top_n": 2,
+            "start": "2020-01-01",
+            "end": "2021-03-31",
+            "out": g / "universe.parquet",
+        },
     }
 
 

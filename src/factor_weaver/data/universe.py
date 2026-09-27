@@ -1,4 +1,3 @@
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -41,7 +40,7 @@ def build_universe(cfg: dict[str, Any]) -> None:
     events = events_raw.loc[:, ["date", "ric", "change"]]
     events = events.sort_values(by="date", ascending=False).reset_index(drop=True)
 
-    quarters = pd.date_range(pd.Timestamp(c["start"]), pd.Timestamp(date.today()), freq="QE")
+    quarters = pd.date_range(pd.Timestamp(u["start"]), pd.Timestamp(u["end"]), freq="QE")
     active: dict[pd.Timestamp, list[str]] = {}
     members = set(anchor)
     i = 0
