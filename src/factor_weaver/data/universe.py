@@ -4,6 +4,15 @@ from typing import Any
 import pandas as pd
 
 _OUT_COLS: list[str] = ["quarter_end", "ric", "ticker", "delisted", "marketcap", "rank"]
+_COMPANY_COLS: list[str] = [
+    "ric",
+    "ticker",
+    "name",
+    "permid",
+    "delisted",
+    "first_quarter_end",
+    "last_quarter_end",
+]
 
 
 def build_universe(cfg: dict[str, Any]) -> None:
@@ -13,17 +22,21 @@ def build_universe(cfg: dict[str, Any]) -> None:
     constituent snapshot using joiner/leaver events (Joiner events remove a
     RIC when walking back, Leaver events add it), then ranks active members
     by as-of market cap (latest value at or before the quarter-end) and
-    keeps the top N per quarter.
+    keeps the top N per quarter. RICs in <universe.exclude_rics> are dropped
+    before ranking, so the next-ranked company backfills their slot.
 
     Reads: <lseg.constituents_out>, <lseg.joiners_leavers_out>,
            <lseg.mapping_out>, <lseg.market_cap_out>
-    Writes: <universe.out> (columns: quarter_end, ric, ticker, delisted,
+    Writes: <universe.universe_out> (columns: quarter_end, ric, ticker, delisted,
             marketcap, rank). Delisted RICs have no LSEG ticker; their ticker
             is the base RIC symbol (e.g. TWX.N^A01 -> TWX) and delisted=True.
+            <universe.companies_out> (columns: ric, ticker, name, permid,
+            delisted, first/last_quarter_end): one row per distinct universe
+            RIC, the global company registry for downstream steps.
     """
     c = cfg["lseg"]
     u = cfg["universe"]
-    out = Path(u["out"])
+    out = Path(u["universe_out"])
     inputs = {
         "constituents_out": Path(c["constituents_out"]),
         "joiners_leavers_out": Path(c["joiners_leavers_out"]),
@@ -71,6 +84,9 @@ def build_universe(cfg: dict[str, Any]) -> None:
     # some retired RICs have no cap data at all
     # dropping them does not affect top 50
     merged = merged.dropna(subset=["market_cap"]).rename(columns={"market_cap": "marketcap"})
+    exclude = list(u.get("exclude_rics") or [])
+    if exclude:
+        merged = merged.loc[~merged["ric"].isin(exclude)]
     merged["rank"] = (
         merged.groupby("quarter_end")["marketcap"].rank(ascending=False, method="first").astype(int)
     )
@@ -82,14 +98,31 @@ def build_universe(cfg: dict[str, Any]) -> None:
             f" {int((per_q < u['top_n']).sum())} quarters rank fewer than {u['top_n']} members"
         )
     mapping_raw: pd.DataFrame = pd.read_parquet(inputs["mapping_out"])
-    mapping = mapping_raw.loc[:, ["ric", "ticker"]].drop_duplicates(subset="ric")
+    mapping = mapping_raw.loc[:, ["ric", "ticker", "name", "permid"]].drop_duplicates(subset="ric")
     df = merged.merge(mapping, on="ric", how="left")
     # LSEG returns no ticker for most retired RICs (^-suffixed)
     # generate the base symbol from the RIC (TWX.N^A01 -> TWX) and flag the row as delisted
     df["delisted"] = df["ticker"].isna()
     df["ticker"] = df["ticker"].fillna(df["ric"].str.split(".").str[0])
-    df = df.loc[:, _OUT_COLS].sort_values(by=["quarter_end", "rank"])
 
+    companies = (
+        df.groupby("ric", as_index=False)
+        .agg(
+            ticker=("ticker", "first"),
+            name=("name", "first"),
+            permid=("permid", "first"),
+            delisted=("delisted", "first"),
+            first_quarter_end=("quarter_end", "min"),
+            last_quarter_end=("quarter_end", "max"),
+        )
+        .loc[:, _COMPANY_COLS]
+    )
+    companies_out = Path(u["companies_out"])
+    companies_out.parent.mkdir(parents=True, exist_ok=True)
+    companies.to_parquet(companies_out, index=False)
+
+    df = df.loc[:, _OUT_COLS].sort_values(by=["quarter_end", "rank"])
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(out, index=False)
     print(f"wrote {out} ({len(df)} rows, {df['quarter_end'].nunique()} quarters)")
+    print(f"wrote {companies_out} ({len(companies)} companies)")

@@ -5,5 +5,6 @@
   - [x] obtain and clean financialdatadb fundamentals
   - [x] obtain and clean S&P500 constituents data from LSEG
   - [x] build a top 50 universe
-  - [ ] obtain daily OHLCV data from LSEG
+  - [x] obtain daily OHLCV data from LSEG
+  - [ ] decide on how to store extra assets in the universe (e.g. extra_prices.parquet)
   - [ ] behavioral data...

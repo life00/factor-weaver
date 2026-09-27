@@ -14,7 +14,7 @@ Tentative stack (under consideration): Python, PyTorch, Gymnasium (not FinRL), h
 src/factor_weaver/
 ├── cli.py            # argparse subcommand dispatcher (entry point)
 ├── workflows/        # orchestrators: build_dataset, train, evaluate
-├── data/             # MODULE 1: financialdatadb, lseg, tickers, universe, edgar, prices, technicals, behavior, align, split
+├── data/             # MODULE 1: financialdatadb, lseg, tickers, universe, edgar, prices, yahoo, technicals, behavior, align, split
 ├── rl/               # MODULE 2: env, model, ppo
 ├── eval/             # MODULE 3: backtest, benchmarks
 └── math.py           # financial math helpers (shared)

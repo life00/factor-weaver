@@ -48,6 +48,8 @@ def cfg(tmp_path):
             {
                 "ric": list(RIC.values()),
                 "ticker": ["A", "B", "C", "D", None],
+                "name": ["Company A", "Company B", "Company C", "Company D", "Company E"],
+                "permid": ["1", "2", "3", "4", "5"],
             }
         ),
         f / "mapping.parquet",
@@ -90,7 +92,8 @@ def cfg(tmp_path):
             "top_n": 2,
             "start": "2020-01-01",
             "end": "2021-03-31",
-            "out": g / "universe.parquet",
+            "universe_out": g / "universe.parquet",
+            "companies_out": g / "companies.parquet",
         },
     }
 
@@ -98,7 +101,7 @@ def cfg(tmp_path):
 def test_membership_reconstruction(cfg):
     cfg["universe"]["top_n"] = 4
     build_universe(cfg)
-    df = pd.read_parquet(cfg["universe"]["out"])
+    df = pd.read_parquet(cfg["universe"]["universe_out"])
     by_q = df.groupby("quarter_end")["ric"].apply(set)
     assert by_q[pd.Timestamp("2020-03-31")] == {"A.N", "B.N", "C.N", "E.N^X99"}
     assert by_q[pd.Timestamp("2020-06-30")] == {"A.N", "B.N", "D.N", "E.N^X99"}
@@ -107,7 +110,7 @@ def test_membership_reconstruction(cfg):
 
 def test_ranking(cfg):
     build_universe(cfg)
-    df = pd.read_parquet(cfg["universe"]["out"])
+    df = pd.read_parquet(cfg["universe"]["universe_out"])
     rows = df[df["quarter_end"] == pd.Timestamp("2020-06-30")]
     assert list(rows["rank"]) == [1, 2]
     assert list(rows["ric"]) == ["A.N", "D.N"]
@@ -116,10 +119,47 @@ def test_ranking(cfg):
     assert all(r == [1, 2] for r in ranges)
 
 
+def test_exclude_rics_backfills_and_drops_from_registry(cfg):
+    cfg["universe"]["top_n"] = 3
+    cfg["universe"]["exclude_rics"] = [RIC["E"]]
+    build_universe(cfg)
+    universe = pd.read_parquet(cfg["universe"]["universe_out"])
+    assert RIC["E"] not in set(universe["ric"])
+    q = universe[universe["quarter_end"] == pd.Timestamp("2020-03-31")]
+    assert RIC["C"] in set(q["ric"])  # next-ranked company backfills the slot
+    companies = pd.read_parquet(cfg["universe"]["companies_out"])
+    assert RIC["E"] not in set(companies["ric"])
+
+
+def test_companies_registry(cfg):
+    cfg["universe"]["top_n"] = 3
+    build_universe(cfg)
+    companies = pd.read_parquet(cfg["universe"]["companies_out"])
+    assert set(companies["ric"]) == {RIC["A"], RIC["B"], RIC["D"], RIC["E"]}
+    assert set(companies.columns) == {
+        "ric",
+        "ticker",
+        "name",
+        "permid",
+        "delisted",
+        "first_quarter_end",
+        "last_quarter_end",
+    }
+    e = companies.loc[companies["ric"] == RIC["E"]].iloc[0]
+    assert bool(e["delisted"]) and e["ticker"] == "E" and e["name"] == "Company E"
+    assert e["permid"] == "5"
+    assert e["first_quarter_end"] == pd.Timestamp("2020-03-31")
+    assert e["last_quarter_end"] == pd.Timestamp("2020-03-31")
+    a = companies.loc[companies["ric"] == RIC["A"]].iloc[0]
+    assert not bool(a["delisted"])
+    assert a["first_quarter_end"] == pd.Timestamp("2020-03-31")
+    assert a["last_quarter_end"] == pd.Timestamp("2021-03-31")
+
+
 def test_delisted_flag(cfg):
     cfg["universe"]["top_n"] = 3
     build_universe(cfg)
-    df = pd.read_parquet(cfg["universe"]["out"])
+    df = pd.read_parquet(cfg["universe"]["universe_out"])
     e = df.loc[df["ric"] == RIC["E"], "delisted"]
     assert len(e) and bool(e.all())
     assert set(df.loc[df["ric"] == RIC["E"], "ticker"]) == {"E"}

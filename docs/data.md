@@ -51,10 +51,12 @@
   - <https://financialdatadb.com/> — raw xlsx files (26 `*_tickers.xlsx` A-Z, one sheet per ticker) live in `data/raw/financialdatadb/us_financials/`
 - equity universe
   - LSEG data API — S&P500 constituent list, joiner/leaver history, RIC mapping; market cap via `TR.CompanyMarketCap` (fallback `TR.F.MktCap`) for top-50 selection
+  - `universe.build_universe` also writes `data/interim/companies.parquet`, the distinct RIC → ticker/name/permid registry used by later steps
 - filing dates
   - <https://www.sec.gov/data-research/sec-markets-data/financial-statement-data-sets> — EDGAR submissions API for 10-Q filing dates (anchors fundamental alignment, avoids look-ahead bias)
 - price
-  - LSEG data API — daily OHLCV
+  - LSEG data API — daily OHLCV (RTS-adjusted), primary source
+  - <https://finance.yahoo.com/> via `yfinance` — fallback for RICs LSEG has no data for, plus config-listed index/indicator series (`data/interim/extra_prices.parquet`); per-symbol raw cache under `data/raw/yahoo/prices/`
 - technical
   - computed from prices (moving averages, volume indicators)
 - behavioral

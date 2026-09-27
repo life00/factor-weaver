@@ -9,9 +9,24 @@ lseg:
   joiners_leavers_out: data/raw/lseg/joiners_leavers.parquet
   mapping_out: data/raw/lseg/ric_mapping.parquet
   market_cap_out: data/raw/lseg/market_cap.parquet
+  prices_out: data/raw/lseg/prices
+  ric_fallbacks: # in case content lives under another RIC
+    KHC.OQ: KHC.N # same company (Kraft Heinz
+    FSR.N^B01: USB.N # same company (U.S. Bancorp)
+
+prices:
+  out: data/interim/prices.parquet
+
+yahoo:
+  prices_out: data/raw/yahoo/prices
+  extra_prices_out: data/interim/extra_prices.parquet
+  extra_symbols: ["^GSPC", "^VIX"] # extra series
+  symbol_overrides: {} # universe RIC -> Yahoo symbol (if ticker differs)
 
 universe:
   top_n: 50
+  exclude_rics: ["ENE.N^A02"] # no LSEG or Yahoo prices
   start: "1994-01-01"
   end: "2026-01-01"
-  out: data/interim/universe.parquet
+  universe_out: data/interim/universe.parquet
+  companies_out: data/interim/companies.parquet

@@ -167,6 +167,57 @@ def _normalize(df: pd.DataFrame, titles: dict[str, str]) -> pd.DataFrame:
     return df.dropna(subset=["date", "market_cap"])
 
 
+def resolve_ric(cfg: dict[str, Any], ric: str) -> str:
+    """RIC to query LSEG for content.
+
+    Stale/retired universe RICs are mapped by <lseg.ric_fallbacks> to the RIC
+    that carries the same company's content; callers relabel results back.
+    """
+    return ((cfg.get("lseg") or {}).get("ric_fallbacks") or {}).get(ric, ric)
+
+
+# RTS back-adjusts price and volume for splits and dividends, keeping both series continuous.
+ADJUSTMENTS = "RTS"
+_PRICE_FIELDS = ["OPEN_PRC", "HIGH_1", "LOW_1", "TRDPRC_1", "ACVOL_UNS"]
+_PRICE_RENAME = {
+    "OPEN_PRC": "open",
+    "HIGH_1": "high",
+    "LOW_1": "low",
+    "TRDPRC_1": "close",
+    "ACVOL_UNS": "volume",
+}
+_PRICE_OUT_COLS = ["date", "ric", "open", "high", "low", "close", "volume"]
+
+
+def _normalize_history(df: pd.DataFrame, ric: str) -> pd.DataFrame:
+    """Rename get_history output to (date, ric, open..volume), drop empty rows."""
+    df = df.rename(columns=_PRICE_RENAME).rename_axis("date").reset_index()
+    df = df.reindex(columns=_PRICE_OUT_COLS)  # some RICs return a (0, 0) frame, not an error
+    df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_convert(None)
+    df["ric"] = ric
+    df = df.dropna(subset=["close"])
+    return df.sort_values(by="date").reset_index(drop=True)
+
+
+def fetch_history(ld: Any, ric: str, start: str, end: str) -> pd.DataFrame:
+    """Fetch adjusted daily OHLCV for one RIC over the whole period.
+
+    Returns the canonical (date, ric, open..volume) frame, empty when the RIC
+    has no data. Retired ^-suffixed RICs remain resolvable.
+    """
+    return _normalize_history(
+        ld.get_history(
+            universe=ric,
+            fields=_PRICE_FIELDS,
+            interval="daily",
+            start=start,
+            end=end,
+            adjustments=ADJUSTMENTS,
+        ),
+        ric,
+    )
+
+
 def fetch_market_cap(cfg: dict[str, Any]) -> None:
     """Fetch quarterly market cap for every known S&P500 RIC.
 
