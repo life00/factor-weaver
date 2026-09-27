@@ -8,3 +8,5 @@
   - [x] obtain daily OHLCV data from LSEG
   - [ ] decide on how to store extra assets in the universe (e.g. extra_prices.parquet)
   - [ ] behavioral data...
+- [ ] review and refactor existing architecture to be nicer and more modular
+- [ ] properly implement documentation in markdown with mermaid charts
