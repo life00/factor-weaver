@@ -40,6 +40,7 @@ package "factor_weaver" {
     rectangle universe as "universe"
     rectangle edgar as "edgar"
     rectangle prices as "prices"
+    rectangle yahoo as "yahoo"
     rectangle technicals as "technicals"
     rectangle behavior as "behavior"
     rectangle align as "align"
@@ -70,6 +71,7 @@ build_dataset --> lseg
 build_dataset --> universe
 build_dataset --> edgar
 build_dataset --> prices
+prices --> yahoo
 build_dataset --> technicals
 build_dataset --> behavior
 build_dataset --> align
@@ -97,6 +99,8 @@ note right of data_pkg
   Disk is the orchestrator.
   Each step writes parquet,
   next step reads it.
+  Fetch steps cache downloads
+  (existence = cached).
 end note
 
 note right of rl

@@ -14,6 +14,7 @@
 - method
   - rolling top 50 companies in S&P500
   - redefine list in each period
+  - exclude RICs with no price content (`universe.exclude_rics`); next-ranked company fills the slot
 - alignment
   - forward-fill fundamentals with per-group staleness counter
   - time-decay for behavioral features
@@ -38,12 +39,9 @@
       - positive/negative sentiment based on posts or news
 - extra assets
   - risk-free
-    - price, technical, behavioral
-  - S&P500 stock index?
-    - price, technical, behavioral
+  - S&P500 stock index — `^GSPC` (`extra_prices.parquet`)
 - market-wide indicators
-  - VIX
-  - ...?
+  - VIX — `^VIX` (`extra_prices.parquet`)
 
 ## Sources
 
@@ -55,8 +53,9 @@
 - filing dates
   - <https://www.sec.gov/data-research/sec-markets-data/financial-statement-data-sets> — EDGAR submissions API for 10-Q filing dates (anchors fundamental alignment, avoids look-ahead bias)
 - price
-  - LSEG data API — daily OHLCV (RTS-adjusted), primary source
-  - <https://finance.yahoo.com/> via `yfinance` — fallback for RICs LSEG has no data for, plus config-listed index/indicator series (`data/interim/extra_prices.parquet`); per-symbol raw cache under `data/raw/yahoo/prices/`
+  - LSEG data API — daily OHLCV (RTS-adjusted), primary source; per-RIC cache in `data/raw/lseg/prices/`
+  - stale RICs retargeted via `lseg.ric_fallbacks` (FSR.N^B01 → USB.N, KHC.OQ → KHC.N), rows relabelled
+  - <https://finance.yahoo.com/> via `yfinance` — fallback for remaining gaps (validated against the universe window) plus config index/indicator series (`data/interim/extra_prices.parquet`); per-symbol cache in `data/raw/yahoo/prices/`
 - technical
   - computed from prices (moving averages, volume indicators)
 - behavioral
@@ -75,3 +74,13 @@
 - **Membership ~20 names short pre-2000**: the joiner/leaver file has ~20 more Leaver than
   real Joiner events before 2000, so reconstructed membership counts 477-505 vs. ~500
   (1994: 478). Top-50 universe should be unaffected.
+
+### Prices
+
+- **Retired RICs with no price content**: FSR.N^B01 sourced from USB.N (same PermID,
+  `lseg.ric_fallbacks`); ENE.N^A02 has no LSEG or Yahoo content and is excluded
+  (`universe.exclude_rics`), next-ranked company backfills its 2 quarters (2000Q3/Q4)
+- **Adjustment basis differs across vendors**: LSEG RTS vs Yahoo split/dividend-adjusted
+  (back-adjusted on each dividend); Yahoo rows only fill LSEG gaps
+- **Existence-based caches**: delete `data/raw/lseg/prices/` and `data/raw/yahoo/prices/`
+  to refetch after changing the universe window

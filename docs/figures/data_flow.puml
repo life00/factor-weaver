@@ -23,6 +23,7 @@ skinparam arrow {
 
 actor "financialdatadb\n(xlsx, 26 files)" as fdb
 actor "LSEG data API\n(S&P500 list, OHLCV)" as lseg
+actor "Yahoo Finance\n(yfinance)" as yahoo
 actor "SEC EDGAR\n(filings API)" as edgar
 actor "market-behavior\n(sibling repo)" as beh
 
@@ -36,26 +37,29 @@ rectangle "fetch_mapping\nRIC → ticker/PermID" as fetch_mapping
 rectangle "fetch_market_cap\nquarterly, TR.CompanyMarketCap" as fetch_market_cap
 rectangle "build_universe\ntop-50 S&P500" as build_universe
 rectangle "fetch_filing_dates\nSEC submissions" as fetch_filing_dates
-rectangle "fetch_prices\nOHLCV daily" as fetch_prices
+rectangle "fetch_prices\nLSEG + Yahoo fallback/extra" as fetch_prices
 rectangle "compute_technicals\nrolling indicators" as compute_technicals
 rectangle "load_behavior\nsentiment/attention" as load_behavior
 rectangle "align_dataset\nEDGAR-anchored merge" as align_dataset
 
 database "fundamentals\n.parquet" as fund_pq
-database "companies\n.parquet" as comp_pq
+database "companies\n.parquet\n(financialdatadb)" as comp_pq
 database "constituents\n.parquet" as cons_pq
 database "joiners_leavers\n.parquet" as jl_pq
 database "ric_mapping\n.parquet" as map_pq
 database "market_cap\n.parquet" as cap_pq
 database "universe\n.parquet" as univ_pq
+database "companies\n.parquet\n(registry)" as reg_pq
 database "filing_dates\n.parquet" as fd_pq
 database "prices\n.parquet" as price_pq
+database "extra_prices\n.parquet" as extra_pq
 database "technicals\n.parquet" as tech_pq
 database "behavior\n.parquet" as beh_pq
 database "data/processed/" as processed
 
 fdb --> raw
 lseg --> raw
+yahoo --> raw
 edgar --> raw
 beh --> raw
 
@@ -82,13 +86,19 @@ jl_pq --> build_universe
 map_pq --> build_universe
 cap_pq --> build_universe
 build_universe --> univ_pq
+build_universe --> reg_pq
 
-comp_pq --> fetch_filing_dates
-univ_pq --> fetch_filing_dates
+reg_pq --> fetch_filing_dates
 fetch_filing_dates --> fd_pq
 
-univ_pq --> fetch_prices
+reg_pq --> fetch_prices
 fetch_prices --> price_pq
+fetch_prices --> extra_pq
+
+note right of fetch_prices
+  Raw per-RIC/symbol caches in data/raw/
+  (existence = cached, delete to refetch)
+end note
 
 price_pq --> compute_technicals
 compute_technicals --> tech_pq
