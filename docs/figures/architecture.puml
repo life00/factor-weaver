@@ -47,15 +47,22 @@ package "factor_weaver" {
     rectangle split as "split"
   }
 
-  package "rl" {
-    rectangle env as "env\nGymnasium env"
-    rectangle model as "model\nencoder + actor/critic"
-    rectangle ppo as "ppo\ntraining loop"
+  package "models" as models_pkg {
+    rectangle simple as "simple\n1/N, index buy-and-hold"
+    rectangle optimize as "optimize\nshared tangency"
+    rectangle mean_var as "mean_variance\nMarkowitz"
+    rectangle bl as "black_litterman\nKolm et al. (2020) BLB"
+    rectangle ml_fore as "ml_forecast\nGKX GBRT -> MV"
+    package "rl" as rl_pkg {
+      rectangle env as "env\nGymnasium env"
+      rectangle model as "model\nencoder + actor/critic"
+      rectangle ppo as "ppo\ntraining loop"
+      rectangle policy as "policy\nweight-provider adapter"
+    }
   }
 
   package "eval" as eval_pkg {
-    rectangle backtest as "backtest"
-    rectangle benchmarks as "benchmarks"
+    rectangle backtest as "backtest\nshared daily engine"
   }
 
   rectangle math as "math\nfinancial helpers"
@@ -84,7 +91,10 @@ ppo --> env
 ppo --> model
 
 evaluate --> backtest
-evaluate --> benchmarks
+backtest ..> models_pkg : weights per rebalance
+mean_var --> optimize
+ml_fore --> optimize
+bl --> optimize
 
 env --> math
 backtest --> math
@@ -103,10 +113,12 @@ note right of data_pkg
   (existence = cached).
 end note
 
-note right of rl
-  Clean boundary:
-  consumes aligned.parquet,
-  doesn't know how it was built.
+note right of models_pkg
+  Everything producing
+  portfolio weights is a
+  weight-provider; the engine
+  treats the RL policy and
+  benchmarks identically.
 end note
 
 @enduml

@@ -15,13 +15,16 @@
     - bankruptcies $\to$ loss
     - mergers, delistings, $\to$ risk-free
 - transaction costs
-  - calculate transaction fees, slippage (based on average daily traded volume?), $V_{t+1}$, $w_{i,t}^+$
+  - fixed fee per side on turnover: 10 bps (median implementation shortfall; Frazzini, Israel & Moskowitz, 2018)
+  - sensitivity bounds: Lesmond et al. (1999), Bikker et al. (2004)
+  - identical accounting for the RL model and all benchmarks via the shared engine (see `docs/models.md`)
 - stack (tentative)
   - RL environment: Gymnasium gives full control over step logic compared to FinRL
   - Deep learning: PyTorch has strong RL ecosystem support and provides MultiheadAttention and Dirichlet distributions
   - PPO: hand-rolled with CleanRL as reference since we need custom encoder and policy heads
   - Encoder: cross-stock transformer with MultiheadAttention over the stock dimension
   - Policy head: Dirichlet to enforce the simplex constraint (no short-selling), as described in Andre & Coqueret (2020)
+  - Benchmarks: scikit-learn (GBRT, Ledoit-Wolf covariance) and PyPortfolioOpt (tangency optimizer) for the non-RL models (see `docs/models.md`)
   - Data: pandas with parquet storage
   - Config: YAML files
   - Tracking: MLflow for experiment tracking and resumption
@@ -55,9 +58,9 @@
   - financial
     - return, sharpe, sortino
     - train and test periods
-- benchmark
-  - compare to more traditional portfolio optimization models and strategies
-    - min variance
-    - 1/N
-    - ...
+- benchmarks (see `docs/models.md` and `PLAN.md`)
+  - all models evaluated through one shared backtest engine: identical costs, dynamic universe, and accounting
+  - standard: mean-variance (max-Sharpe tangency), 1/N, S&P500 buy and hold
+  - factor-based: ml_forecast (Gu, Kelly & Xiu, 2020 GBRT + Ma et al., 2021 mean-variance), black_litterman (Kolm et al., 2020)
+  - MLflow tracking shared with the RL runs
   - compare metrics with other papers

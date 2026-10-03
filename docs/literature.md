@@ -31,6 +31,15 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
   - traditional models
     - Markowitz (1952): mean-variance foundation; baseline comparison
     - DeMiguel et al. (2009): 1/N often beats mean-variance out-of-sample due to estimation error (3,136 citations); establishes 1/N as the key benchmark
+  - extra models (factor-based, replicated as benchmarks)
+    - Gu et al. (2020): ML return prediction from characteristics; trees dominate; replicated as the GBRT forecasting benchmark
+    - Ma et al. (2021): ML return prediction fed into mean-variance, evaluated net of fees; replicated as the portfolio step of the ML benchmark
+    - Kolm et al. (2020): Black-Litterman-Bayes factor views and priors framework; replicated as the econometric benchmark
+    - He & Litterman (2002): canonical BL intuition (equilibrium + views); background for the BLB replication
+  - transaction costs (benchmark engine)
+    - Frazzini, Israel & Moskowitz (2018): live institutional trade data; median implementation shortfall ≈ 10 bps; sets the engine's default per-side fee
+    - Lesmond et al. (1999): classic 1.2% round-trip large-cap estimate; conservative sensitivity bound
+    - Bikker et al. (2004): 20/30 bps pension-fund market impact; conservative sensitivity bound
   - ML-based models
     - Nazareth & Reddy (2023): broad financial ML survey; positions thesis in the wider landscape
     - Sutiene et al. (2024): AI techniques for portfolio management; directly relevant framing
@@ -65,25 +74,38 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
     - S&P500
     - DeMiguel et al. (2009): 1/N as the hardest baseline
     - Espiga-Fernández et al. (2024): benchmarks DQN, DDPG, PPO, SAC across multiple market signals; provides comparison methodology
+    - Gu et al. (2020): GBRT return forecasting replicated for the ML benchmark (with Ma et al. 2021 forecast→MV portfolio step)
+    - Kolm et al. (2020): BLB replicated for the econometric benchmark
+    - Jo et al. (2026): ML predictability inflated by microcaps; large-cap top-50 universe keeps the comparison conservative
+    - Drobetz et al. (2020): long-only ML portfolios remain profitable after transaction costs
 
 ## Sources
 
 - Almahdi, S., & Yang, S. Y. (2017). An adaptive portfolio trading system: A risk-return portfolio optimization using recurrent reinforcement learning with expected maximum drawdown. _Expert Systems with Applications_, _87_, 267-279. <https://doi.org/10.1016/j.eswa.2017.06.023>
 - Noguer I Alonso, M., & Srivastava, S. (2020). Deep reinforcement learning for asset allocation in US equities. _SSRN_. <https://dx.doi.org/10.2139/ssrn.3711487>
 - Betancourt, C., & Chen, W.-H. (2021). Deep reinforcement learning for portfolio management of markets with a dynamic number of assets. _Expert Systems with Applications_, _164_, 114002. <https://doi.org/10.1016/j.eswa.2020.114002>
+- Bikker, J. A., Spierdijk, L., & van der Sluis, P. J. (2004). Market Impact Costs of Institutional Equity Trades. _Journal of International Money and Finance_, _23_(1), 57-74. <https://consensus.app/papers/details/9ca69d18e262566fa7871ae196df3f2e/?utm_source=unknown>
 - Bartram, S. M., Lohre, H., Pope, P. F., & Ranganathan, A. (2021). Navigating the factor zoo around the world: An institutional investor perspective. _Journal of Business Economics_, _91_(5), 655-703. <https://doi.org/10.1007/s11573-021-01035-y>
 - Benhenda, M. (2025). FinRL-DeepSeek: LLM-Infused Risk-Sensitive Reinforcement Learning for Trading Agents. _arXiv_. <https://arxiv.org/abs/2502.07393>
 - Charkhestani, A., & Esfahanipour, A. (2026). Behaviorally informed deep reinforcement learning for portfolio optimization with loss aversion and overconfidence. _Scientific Reports_, _16_(1). <https://doi.org/10.1038/s41598-026-35902-x>
 - DeMiguel, V., Garlappi, L., & Uppal, R. (2009). Optimal Versus Naive Diversification: How Inefficient is the 1/N Portfolio Strategy? _Review of Financial Studies_, _22_(5), 1915-1953. <https://doi.org/10.1093/rfs/hhm075>
 - André, E., & Coqueret, G. (2020). Dirichlet policies for reinforced factor portfolios. _arXiv:2011.05381_. <https://arxiv.org/abs/2011.05381>
+- Drobetz, W., Hollstein, F., Prokopczuk, M., & Tharann, B. (2020). Empirical asset pricing via machine learning: evidence from the European stock market. _Journal of Asset Management_. <https://consensus.app/papers/details/2081c13541ba510eb26aaf412408d1e0/?utm_source=unknown>
 - Dong, Z., Fan, X., & Peng, Z. (2024). FNSPID: A Comprehensive Financial News Dataset in Time Series. _arXiv:2402.06698_. <https://arxiv.org/abs/2402.06698>
 - Espiga-Fernández, F., García-Sánchez, Á., & Ordieres-Meré, J. (2024). A systematic approach to portfolio optimization: A comparative study of reinforcement learning agents, market signals, and investment horizons. _Algorithms_, _17_(12), 570. <https://doi.org/10.3390/a17120570>
+- Frazzini, A., Israel, R., & Moskowitz, T. J. (2018). Trading Costs. _SSRN_. <https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3229719>
 - González-Cortés, D., Onieva, E., Pastor, I., Trinchera, L., & Wu, J. (2024). Portfolio construction using explainable reinforcement learning. _Expert Systems_, _41_(11), e13667. <https://doi.org/10.1111/exsy.13667>
+- Gu, S., Kelly, B., & Xiu, D. (2020). Empirical Asset Pricing via Machine Learning. _The Review of Financial Studies_, _33_(5), 2223-2273. <https://doi.org/10.1093/rfs/hhaa009>
 - Gunjan, A., & Bhattacharyya, S. (2022). A brief review of portfolio optimization techniques. _Artificial Intelligence Review_, _56_(5), 3847-3886. <https://doi.org/10.1007/s10462-022-10273-7>
+- He, G., & Litterman, R. (2002). The Intuition Behind Black-Litterman Model Portfolios. _SSRN_. <https://consensus.app/papers/details/4719e06784f95085930da2f2e115adb3/?utm_source=unknown>
+- Jo, Y.-S., et al. (2026). Rethinking Variable Importance in Machine Learning: An Economic Perspective on Empirical Asset Pricing. _Financial Analysts Journal_. <https://consensus.app/papers/details/54b526c659a559cf8f981cd4bf0d38f6/?utm_source=unknown>
 - Kirtac, K., & Germano, G. (2024). Sentiment trading with large language models. _Finance Research Letters_, _62_, 105227. <https://doi.org/10.1016/j.frl.2024.105227>
 - Kirtac, K., & Germano, G. (2025). Large language models in finance: what is financial sentiment? _arXiv:2503.03612_. <https://doi.org/10.48550/arXiv.2503.03612>
+- Kolm, P. N., Ma, Y., Mulvey, J. M., & Iyengar, S. (2020). Factor Investing with Black-Litterman-Bayes: Incorporating Factor Views and Priors in Portfolio Construction. _Financial Analysts Journal_, _76_(3). <https://consensus.app/papers/details/b584812b2d0e51e4b020f85b200ff5a8/?utm_source=unknown>
 - Liu, X.-Y., Xia, Z., Rui, J., Gao, J., Yang, H., Zhu, M., Wang, C. D., Wang, Z., & Guo, J. (2022). FinRL-Meta: Market environments and benchmarks for data-driven financial reinforcement learning. _Advances in Neural Information Processing Systems_, _35_. <https://doi.org/10.48550/arXiv.2211.03107>
+- Lesmond, D. A., Ogden, J. P., & Trzcinka, C. A. (1999). A New Estimate of Transaction Costs. _The Review of Financial Studies_, _12_(5), 1113-1147. <https://consensus.app/papers/details/d552cbda778c5425a2550156f5d85ab0/?utm_source=unknown>
 - Mantshimuli, L. (2025). Sentiment-Aware Portfolio Optimization: CVaR-Based Diversification With Deep Reinforcement Learning. _IEEE Access_. <https://doi.org/10.1109/access.2025.3624652>
+- Ma, Y., et al. (2021). Portfolio optimization with return prediction using deep learning and machine learning. _Expert Systems with Applications_. <https://consensus.app/papers/details/53ce3d44adc952669d5891826a4d44cc/?utm_source=unknown>
 - Markowitz, H. (1952). Portfolio Selection. _The Journal of Finance_, _7_(1), 77-91. <https://doi.org/10.1111/j.1540-6261.1952.tb01525.x>
 - Nazareth, N., & Reddy, Y. V. R. (2023). Financial applications of machine learning: A literature review. _Expert Systems with Applications_, _219_, 119640. <https://doi.org/10.1016/j.eswa.2023.119640>
 - Ranade, D. J., Bhaya, S., Bhimakari, S., Chan, M., Quille, K., & Jaiswal, R. (2026). On explaining the sentiments in prediction of stock movement: An XAI-based analysis. _Proceedings of the 2026 Conference on Human Centred Artificial Intelligence—Education and Practice_, 107–113. <https://doi.org/10.1145/3777490.3777510>

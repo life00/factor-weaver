@@ -1,12 +1,18 @@
 - [x] literature: identify most relevant papers and narrow the methodology
 - [x] literature: identify a research gap (based on literature search) and define a clear research question
 - [x] project: directory structure
+- [x] review and refactor existing architecture to be nicer and more modular (models/ + eval/ split per PLAN.md)
 - data
   - [x] obtain and clean financialdatadb fundamentals
   - [x] obtain and clean S&P500 constituents data from LSEG
   - [x] build a top 50 universe
   - [x] obtain daily OHLCV data from LSEG
-  - [ ] decide on how to store extra assets in the universe (e.g. extra_prices.parquet)
+  - [x] decide on how to store extra assets in the universe (extra_prices.parquet)
+  - [ ] add ^IRX to yahoo extra_symbols (risk-free yield series; PLAN.md section 2)
   - [ ] behavioral data...
-- [ ] review and refactor existing architecture to be nicer and more modular
+  - [ ] complete panel file (date, ric, *features) — prerequisite for Phase 2
+- models + eval (see PLAN.md section 9)
+  - [ ] Phase 1: shared engine + simple (1/N, index buy-and-hold) + mean_variance + optimize + workflow/MLflow + tests
+  - [ ] Phase 2 (needs panel): ml_forecast (GKX GBRT) + black_litterman (Kolm et al. BLB)
+  - [ ] Phase 3 (needs RL training): models/rl/ env, model, ppo, policy adapter
 - [ ] properly implement documentation in markdown with mermaid charts

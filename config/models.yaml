@@ -1,0 +1,17 @@
+# Per-model params (PLAN.md section 5, docs/models.md)
+equal_weight: {}
+index_buy_hold: {}
+mean_variance:
+  lookback_days: 1260 # rolling window (5y daily)
+  weight_cap: 0.10 # long-only, per-name cap
+ml_forecast: # Gu-Kelly-Xiu GBRT + Ma et al. MV pipeline
+  horizon: M
+  refit: Y # annual refit (GKX cadence)
+  grid: {} # leaves/shrinkage/trees — GKX Internet Appendix B.2 values at implementation
+  weight_cap: 0.10
+black_litterman: # Kolm et al. (2020) BLB
+  tau: null # per paper at implementation
+  delta: null
+  factor_views: [momentum, value, quality, sentiment, attention]
+  weight_cap: 0.10
+rl: {}
