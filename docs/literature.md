@@ -34,7 +34,7 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
   - extra models (factor-based, replicated as benchmarks)
     - Gu et al. (2020): ML return prediction from characteristics; trees dominate; replicated as the GBRT forecasting benchmark
     - Ma et al. (2021): ML return prediction fed into mean-variance, evaluated net of fees; replicated as the portfolio step of the ML benchmark
-    - Kolm et al. (2020): Black-Litterman-Bayes factor views and priors framework; replicated as the econometric benchmark
+    - Kolm & Ritter (2021): Black-Litterman-Bayes factor views and priors framework (derivation: Kolm & Ritter, 2017); replicated as the econometric benchmark
     - He & Litterman (2002): canonical BL intuition (equilibrium + views); background for the BLB replication
   - transaction costs (benchmark engine)
     - Frazzini, Israel & Moskowitz (2018): live institutional trade data; median implementation shortfall ≈ 10 bps; sets the engine's default per-side fee
@@ -75,7 +75,7 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
     - DeMiguel et al. (2009): 1/N as the hardest baseline
     - Espiga-Fernández et al. (2024): benchmarks DQN, DDPG, PPO, SAC across multiple market signals; provides comparison methodology
     - Gu et al. (2020): GBRT return forecasting replicated for the ML benchmark (with Ma et al. 2021 forecast→MV portfolio step)
-    - Kolm et al. (2020): BLB replicated for the econometric benchmark
+    - Kolm & Ritter (2021): BLB replicated for the econometric benchmark
     - Jo et al. (2026): ML predictability inflated by microcaps; large-cap top-50 universe keeps the comparison conservative
     - Drobetz et al. (2020): long-only ML portfolios remain profitable after transaction costs
 
@@ -101,7 +101,8 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
 - Jo, Y.-S., et al. (2026). Rethinking Variable Importance in Machine Learning: An Economic Perspective on Empirical Asset Pricing. _Financial Analysts Journal_. <https://consensus.app/papers/details/54b526c659a559cf8f981cd4bf0d38f6/?utm_source=unknown>
 - Kirtac, K., & Germano, G. (2024). Sentiment trading with large language models. _Finance Research Letters_, _62_, 105227. <https://doi.org/10.1016/j.frl.2024.105227>
 - Kirtac, K., & Germano, G. (2025). Large language models in finance: what is financial sentiment? _arXiv:2503.03612_. <https://doi.org/10.48550/arXiv.2503.03612>
-- Kolm, P. N., Ma, Y., Mulvey, J. M., & Iyengar, S. (2020). Factor Investing with Black-Litterman-Bayes: Incorporating Factor Views and Priors in Portfolio Construction. _Financial Analysts Journal_, _76_(3). <https://consensus.app/papers/details/b584812b2d0e51e4b020f85b200ff5a8/?utm_source=unknown>
+- Kolm, P. N., & Ritter, G. (2021). Factor Investing with Black-Litterman-Bayes: Incorporating Factor Views and Priors in Portfolio Construction. _The Journal of Portfolio Management_, _47_(2), 113-126. <https://www.pm-research.com/content/iijpormgmt/47/2/113>
+- Kolm, P. N., & Ritter, G. (2017). On the Bayesian interpretation of Black-Litterman. _European Journal of Operational Research_, _258_(2), 564-572. <https://doi.org/10.1016/j.ejor.2016.10.027>
 - Liu, X.-Y., Xia, Z., Rui, J., Gao, J., Yang, H., Zhu, M., Wang, C. D., Wang, Z., & Guo, J. (2022). FinRL-Meta: Market environments and benchmarks for data-driven financial reinforcement learning. _Advances in Neural Information Processing Systems_, _35_. <https://doi.org/10.48550/arXiv.2211.03107>
 - Lesmond, D. A., Ogden, J. P., & Trzcinka, C. A. (1999). A New Estimate of Transaction Costs. _The Review of Financial Studies_, _12_(5), 1113-1147. <https://consensus.app/papers/details/d552cbda778c5425a2550156f5d85ab0/?utm_source=unknown>
 - Mantshimuli, L. (2025). Sentiment-Aware Portfolio Optimization: CVaR-Based Diversification With Deep Reinforcement Learning. _IEEE Access_. <https://doi.org/10.1109/access.2025.3624652>

@@ -7,11 +7,14 @@ mean_variance:
 ml_forecast: # Gu-Kelly-Xiu GBRT + Ma et al. MV pipeline
   horizon: M
   refit: Y # annual refit (GKX cadence)
-  grid: {} # leaves/shrinkage/trees — GKX Internet Appendix B.2 values at implementation
+  grid: {} # depth/shrinkage/trees — GKX Internet Appendix Table A.5 values at implementation
   weight_cap: 0.10
-black_litterman: # Kolm et al. (2020) BLB
-  tau: null # per paper at implementation
-  delta: null
-  factor_views: [momentum, value, quality, sentiment, attention]
+black_litterman: # Kolm & Ritter (2021) BLB; derivation Kolm & Ritter (2017)
+  factors: [momentum, value, quality, sentiment, attention]
+  prior: data-driven # xi = expanding mean of OLS factor returns; V = factor covariance
+  view_uncertainty: diag_v # Omega = diag(v_ii), paper eq. 24
+  risk_aversion: null # delta, paper eq. 29
+  winsorize: null # D floor at implementation
   weight_cap: 0.10
-rl: {}
+rl:
+  rebalance: D # native daily cadence

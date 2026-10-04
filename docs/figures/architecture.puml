@@ -51,7 +51,7 @@ package "factor_weaver" {
     rectangle simple as "simple\n1/N, index buy-and-hold"
     rectangle optimize as "optimize\nshared tangency"
     rectangle mean_var as "mean_variance\nMarkowitz"
-    rectangle bl as "black_litterman\nKolm et al. (2020) BLB"
+    rectangle bl as "black_litterman\nKolm & Ritter (2021) BLB"
     rectangle ml_fore as "ml_forecast\nGKX GBRT -> MV"
     package "rl" as rl_pkg {
       rectangle env as "env\nGymnasium env"

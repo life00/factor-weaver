@@ -15,7 +15,7 @@ identical simulated trading environment:
 | 2 | `index_buy_hold`  | market      | S&P500 (`^GSPC`)                          | none                          |
 | 3 | `mean_variance`   | classical   | Markowitz (1952)                          | prices                       |
 | 4 | `ml_forecast`     | ML          | Gu, Kelly & Xiu (2020) + Ma et al. (2021) | technical, fundamental, behavioral |
-| 5 | `black_litterman` | econometric | Kolm, Ma, Mulvey & Iyengar (2020)         | technical, fundamental, behavioral |
+| 5 | `black_litterman` | econometric | Kolm & Ritter (2021)                      | technical, fundamental, behavioral |
 
 Equivalence guarantees — the central design decision:
 
@@ -24,10 +24,11 @@ Equivalence guarantees — the central design decision:
 - identical transaction costs: 10 bps per side on turnover (median
   implementation shortfall of Frazzini, Israel & Moskowitz; Lesmond et al.
   1999 and Bikker et al. 2004 as sensitivity bounds), `eval.yaml: fees_bps`
-- identical dynamic universe: quarterly top-50 reconstitution; exit below
-  rank 50 → forced sale to cash (costed); delisting → cash at last price
+- identical dynamic universe: quarterly top-50 reconstitution; any exit
+  (rank drop, delisting) → forced liquidation to cash at last available
+  price (costed)
 - identical accounting granularity: the engine steps daily; rebalance
-  frequency is a model property (config, default monthly = GKX horizon)
+  frequency is a model property (config; benchmarks monthly, RL daily)
 
 ## 2. Prerequisites (data phase — separate work)
 
@@ -55,7 +56,7 @@ src/factor_weaver/
 │   ├── simple.py           # equal_weight (1/N), index_buy_hold (^GSPC)
 │   ├── optimize.py         # shared tangency(mu, cov, rf, cap) via PyPortfolioOpt
 │   ├── mean_variance.py    # rolling mu + Ledoit-Wolf cov -> tangency
-│   ├── black_litterman.py # Kolm et al. (2020) BLB
+│   ├── black_litterman.py # Kolm & Ritter (2021) BLB
 │   ├── ml_forecast.py     # GKX GBRT -> shared tangency
 │   └── rl/                 # RL model
 │       ├── env.py          # Gymnasium environment
@@ -67,7 +68,8 @@ src/factor_weaver/
 ```
 
 A model is a pure function: `(t, universe members, panel history ≤ t) →
-{ric: weight}` with Σweights ≤ 1 (remainder = risk-free cash). `models/rl/`
+{ric: weight}` with Σweights = 1, long-only; cash is engine-only (forced
+liquidation). `models/rl/`
 absorbs the previous top-level `rl/` module so that everything producing
 weights lives under `models/`.
 
@@ -76,15 +78,17 @@ panel path, MLflow) + `config/models.yaml` (per-model params).
 
 ## 4. Shared backtest engine — `eval/backtest.py`
 
-- daily loop over the evaluation window
-- at rebalance dates (per-model config, default monthly): model → target
-  weights over current members; cost = Σ|Δw| × `fees_bps`; weights drift with
-  prices between rebalances
-- quarter boundary: members exiting the top-50 → forced sale to cash at
-  close, costed at the same rate; entrants receive weight at the next
-  rebalance
-- delisting → position converted to cash at last available price
-- cash yields the `^IRX`-derived daily return
+- daily order
+  1. liquidate delisted positions to cash at last available price, costed
+  2. mark risky positions to close; accrue the `^IRX`-derived daily return on cash
+  3. quarter boundary: members exiting the top-50 → forced sale to cash at
+     close, costed at the same rate; entrants receive weight at the next rebalance
+  4. rebalance date (per-model config; benchmarks monthly, RL daily): model →
+     target weights over current members, Σw = 1, long-only; cost =
+     `fees_bps`/1e4 × Σ|w_target − w_drift| over risky assets + cash
+- weights drift with prices between rebalances
+- any exit (rank drop, delisting) is a forced liquidation to cash at last
+  available price; cash is engine-only (models cannot choose it)
 - metrics: CAGR, annualized volatility, Sharpe, Sortino, max drawdown,
   Calmar, average turnover; outputs: equity curve, weights history, metrics
 
@@ -117,31 +121,31 @@ Replicates the GKX forecasting methodology on our panel characteristics:
 - monthly horizon; target = next-month excess return
 - features = panel characteristics (technical, fundamental, behavioral
   composites); GKX cross-sectional rank standardization each month
-- GBRT = `sklearn.HistGradientBoostingRegressor`; grid (leaves L, shrinkage
-  ν, trees B) per GKX Internet Appendix B.2, tuned on a temporally ordered
-  validation split; annual refit, monthly predictions
+- GBRT = `sklearn.GradientBoostingRegressor` (depth L, shrinkage ν, trees B)
+  per GKX Algorithm 4/Internet Appendix Table A.5, tuned on a temporally
+  ordered validation split; annual refit, monthly predictions
 - predicted returns → shared tangency optimizer (Ma et al. forecast→MV
   pipeline, evaluated net of transaction fees)
 - no look-ahead: training rows strictly < t (EDGAR-anchored panel)
 - note: GKX predictability is strongest in microcaps (Jo et al. 2026); the
   top-50 large-cap universe makes this a conservative test
 
-### 5.5 `black_litterman.py` — Kolm et al. (2020) Black-Litterman-Bayes
+### 5.5 `black_litterman.py` — Kolm & Ritter (2021) Black-Litterman-Bayes
 
-Single-paper replication of the BLB framework on US cross-sectional equity
-factor views:
+Single-paper replication of the BLB framework (derivation: Kolm & Ritter,
+2017) on US cross-sectional equity factor views:
 
-- prior: benchmark/equilibrium prior from top-50 cap weights (reverse
-  optimization π = δΣw_mkt), shrinkage covariance
-- views: factor risk-premium views mapped to stock-level expected returns
-  via the paper's APT-style structure — momentum (technical), value +
-  quality (fundamental), sentiment/attention (behavioral; additional factor
-  views — the framework is generic in factor choice)
-- posterior: the paper's closed-form E[r] and covariance (numpy; formulas
-  replicated, not reinvented)
-- weights: posterior → shared tangency, long-only + weight cap; the
-  cap-weighted prior is the implicit benchmark
-- τ/δ defaults per paper, in `config/models.yaml`
+- APT: r = Xf + ε, ε ~ N(0, D); loadings X = standardized panel composites —
+  momentum (technical), value + quality (fundamental), sentiment/attention
+  (behavioral); D = winsorized rolling residual variances
+- factor returns: cross-sectional OLS f̂ = (X'X)⁻¹X'r (paper's data-driven route)
+- prior: π_f ~ N(ξ, V); ξ = expanding mean of f̂, V = factor covariance
+- views: q = one-period-ahead AR(1) forecast of each factor premium on an
+  expanding window; Ω = diag(v_ii) (paper eq. 24; paper uses AICc ARIMA)
+- posterior: paper eqs. 25–27 → E[r], Cov[r] (numpy; formulas replicated)
+- weights: posterior → shared tangency, long-only + cap (paper eq. 29)
+- no τ; shrinkage controlled by V and Ω — config: `factors`, `prior`,
+  `view_uncertainty`, `risk_aversion`, `winsorize`, `weight_cap`
 
 ### 5.6 `models/rl/` — the thesis model
 
@@ -169,7 +173,7 @@ added with `models/rl/` (Phase 3).
 ## 8. Tests
 
 - `tests/test_backtest.py` (synthetic): cost math, forced exit at quarter
-  boundary, delisting → cash, `^IRX` yield conversion, 1/N weight sums
+  boundary, costed delisting liquidation, `^IRX` yield conversion, 1/N sums
 - `tests/test_models.py` (synthetic panel): providers return valid simplex
   weights; tangency respects long-only + cap; BLB posterior sanity (zero
   views → prior); `ml_forecast` training cutoff strictly < t, rank
@@ -189,6 +193,6 @@ added with `models/rl/` (Phase 3).
 
 Full citations in `docs/literature.md` (Sources). Replication targets and
 cost sources: DeMiguel et al. (2009); Markowitz (1952); Gu, Kelly & Xiu
-(2020); Ma et al. (2021); Kolm, Ma, Mulvey & Iyengar (2020); He & Litterman
+(2020); Ma et al. (2021); Kolm & Ritter (2021); Kolm & Ritter (2017); He & Litterman
 (2002); Frazzini, Israel & Moskowitz (2018); Lesmond et al. (1999); Bikker
 et al. (2004); Jo et al. (2026); Drobetz et al. (2020).

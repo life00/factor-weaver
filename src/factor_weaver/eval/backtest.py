@@ -1,13 +1,16 @@
 """Shared daily backtest engine: identical accounting for all models.
 
-At rebalance dates (per-model config, default monthly) the model produces
-target weights over current universe members; cost = sum(|delta w|) *
-fees_bps (10 bps/side default; Frazzini, Israel & Moskowitz median
-implementation shortfall). Between rebalances weights drift with prices.
-Quarter-boundary universe exits are forced sales to cash (costed);
-delistings convert to cash at the last available price; cash yields the
-^IRX-derived daily return.
+Daily order:
+1. liquidate delisted positions to cash at last available price, costed;
+2. mark risky positions to close; accrue the ^IRX-derived daily return on cash;
+3. quarter boundary: members exiting the top-50 are force-sold to cash at
+   close, costed; entrants receive weight at the next rebalance;
+4. rebalance date (per-model config; benchmarks monthly, RL daily): model
+   returns target weights over current members (sum = 1, long-only); cost =
+   fees_bps/1e4 * sum(|w_target - w_drift|) over risky assets + cash.
 
+Weights drift with prices between rebalances. Any exit (rank drop, delisting)
+is a forced liquidation to cash at last available price; cash is engine-only.
 Metrics: CAGR, annualized volatility, Sharpe, Sortino, max drawdown, Calmar,
 average turnover. Outputs: equity curve, weights history, metrics.
 

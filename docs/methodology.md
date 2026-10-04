@@ -11,9 +11,8 @@
   - dynamic equity universe construction
   - top ranked 50 companies in S&P500 in each period
     - if company falls below rank 50 $\to$ assets converted to risk-free
-  - bankruptcies, mergers, delistings, etc. is handled appropriately
-    - bankruptcies $\to$ loss
-    - mergers, delistings, $\to$ risk-free
+  - any exit (rank drop, delisting) $\to$ forced liquidation to risk-free at
+    last available price, with transaction cost; data only records presence/absence
 - transaction costs
   - fixed fee per side on turnover: 10 bps (median implementation shortfall; Frazzini, Israel & Moskowitz, 2018)
   - sensitivity bounds: Lesmond et al. (1999), Bikker et al. (2004)
@@ -61,6 +60,6 @@
 - benchmarks (see `docs/models.md` and `PLAN.md`)
   - all models evaluated through one shared backtest engine: identical costs, dynamic universe, and accounting
   - standard: mean-variance (max-Sharpe tangency), 1/N, S&P500 buy and hold
-  - factor-based: ml_forecast (Gu, Kelly & Xiu, 2020 GBRT + Ma et al., 2021 mean-variance), black_litterman (Kolm et al., 2020)
+  - factor-based: ml_forecast (Gu, Kelly & Xiu, 2020 GBRT + Ma et al., 2021 mean-variance), black_litterman (Kolm & Ritter, 2021)
   - MLflow tracking shared with the RL runs
   - compare metrics with other papers
