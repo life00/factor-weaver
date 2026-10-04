@@ -1,51 +1,64 @@
 **Work In Progress**
-
 ---
 
 # Factor Weaver
 
 Master's thesis developing a reinforcement learning framework for portfolio management that integrates price, technical, fundamental, and behavioral (attention & sentiment) features across a dynamic equity universe of the top 50 S&P500 constituents. Uses an actor-critic architecture trained via PPO to output portfolio weights (no short-selling) maximizing risk-adjusted returns (Sharpe) under transaction costs, evaluated against benchmarks like equal-weight and minimum-variance.
 
+## Status
+
+- Data pipeline implemented: financialdatadb fundamentals, LSEG constituents/market cap, top-50 universe, prices with Yahoo fallback.
+- Models and evaluation stubbed per [`PLAN.md`](PLAN.md) (Phases 1 to 3).
+
 ## Tech stack
 
-Python, PyTorch, Gymnasium, PPO (hand-rolled), cross-stock transformer, Dirichlet policy head. Config via YAML, experiment tracking via MLflow, linting with ruff and pyright, tests with pytest.
+- Implemented: Python, pandas, pyarrow, lseg-data, yfinance, scikit-learn, PyPortfolioOpt, MLflow, YAML configs, ruff + pyright, pytest.
+- Planned: PyTorch, Gymnasium, hand-rolled PPO, cross-stock transformer, Dirichlet policy head.
+
+## Usage
+
+```sh
+pip install -e .[dev]
+factor-weaver data [steps ...]   # empty = run all steps in order
+```
 
 ## Repository structure
 
 ```
-├── config/             # YAML configs (data paths, env params, model hparams)
-├── data/               # symlinks → /mnt/usb/factor-weaver/data/ (raw, interim, processed)
-│   ├── raw/            #   original downloads/API output from vendors
-│   ├── interim/        #   cleaned and normalized data in parquet files
-│   └── processed/      #   final aligned output for RL training/testing
-├── docs/               # thesis planning docs
-│   └── figures/        #   PlantUML diagrams (data flow, architecture)
-├── notebooks/          # exploratory quarto notebooks
+├── config/
+├── data/
+│   ├── raw/
+│   ├── interim/
+│   └── processed/
+├── docs/
+│   └── figures/
+├── notebooks/
 ├── src/factor_weaver/
-│   ├── cli.py          #   argparse dispatcher (entry point)
-│   ├── workflows/      #   orchestrators: build_dataset, train, evaluate
-│   ├── data/           #   MODULE 1: data pipeline (parse, lseg, universe, edgar, prices, technicals, behavior, align, split)
-│   ├── rl/             #   MODULE 2: env, model, ppo
-│   ├── eval/           #   MODULE 3: backtest, benchmarks
-│   └── math.py         #   financial math helpers (shared)
-├── experiments/        # run outputs (logs, checkpoints, results)
-├── tests/
+│   ├── cli.py
+│   ├── workflows/
+│   ├── data/
+│   ├── models/
+│   │   └── rl/
+│   ├── eval/
+│   └── math.py
+├── experiments/
+└── tests/
 ```
 
 ## Data pipeline
 
-1. `parse-fundamentals` — financialdatadb xlsx → long parquet
-2. `parse-companies` — financialdatadb company list → parquet
-3. `lseg-constituents` — current S&P500 snapshot (LSEG chain RIC)
-4. `lseg-joiners-leavers` — S&P500 membership changes since 1994 (LSEG)
-5. `lseg-mapping` — RIC → ticker/name/PermID crosswalk for all LSEG RICs
-6. `lseg-market-cap` — quarterly market cap via `TR.CompanyMarketCap` (fallback `TR.F.MktCap`)
-7. `universe` — top-50 S&P500 by market cap per quarter
-8. `edgar-filing-dates` — SEC filing dates (no look-ahead bias)
-9. `fetch-prices` — LSEG OHLCV
-10. `compute-technicals` — rolling indicators from prices
-11. `load-behavior` — sibling-repo sentiment/attention parquet
-12. `align` — EDGAR-anchored forward-fill + freshness + time-decay
-13. `split` — train/test tensors by date window
+1. `parse-fundamentals`
+2. `parse-companies`
+3. `lseg-constituents`
+4. `lseg-joiners-leavers`
+5. `lseg-mapping`
+6. `lseg-market-cap`
+7. `universe`
+8. `edgar-filing-dates` (stub)
+9. `fetch-prices`
+10. `compute-technicals` (stub)
+11. `load-behavior` (stub)
+12. `align` (stub)
+13. `split` (stub)
 
 Architecture and data-flow diagrams: [`docs/figures/`](docs/figures/).
