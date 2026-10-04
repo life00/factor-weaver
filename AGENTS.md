@@ -60,7 +60,7 @@ PLAN.md               # benchmark + evaluation implementation plan (phases)
 - Fundamentals: planned from LSEG (not yet implemented; the `panel` build step is the integration point).
 - Behavioral: planned from MarketPsych (not yet implemented).
 - Benchmarks/evaluation (per `PLAN.md`): scikit-learn (GBRT, Ledoit–Wolf), PyPortfolioOpt (tangency optimizer), mlflow (tracking) — declared in `pyproject.toml`; risk-free via `^IRX` (yield series, not a price).
-- Dev: pytest via `pip install -e .[dev]`; run checks with `pytest tests/`, `ruff check .`, `pyright src`.
+- Dev: `uv sync` installs the project plus the `dev` dependency group into `.venv`; run checks with `uv run pytest tests/`, `ruff check .`, `pyright src`.
 
 ## Conventions
 

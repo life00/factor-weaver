@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=64"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.12.17,<0.13"]
+build-backend = "uv_build"
 
 [project]
 name = "factor-weaver"
@@ -22,11 +22,8 @@ dependencies = [
 [project.scripts]
 factor-weaver = "factor_weaver.cli:main"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = ["duckdb>=1.5", "pytest>=8"]
-
-[tool.setuptools.packages.find]
-where = ["src"]
 
 [tool.ruff]
 line-length = 100

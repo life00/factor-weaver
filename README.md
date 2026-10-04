@@ -18,12 +18,12 @@ Master's thesis developing a reinforcement learning framework for portfolio mana
 ## Usage
 
 ```sh
-pip install -e .[dev]
-factor-weaver data                  # run all steps (fetch then build)
-factor-weaver data fetch [steps]    # raw data acquisition only (cached)
-factor-weaver data build [steps]    # derived datasets only
-factor-weaver data --list           # step/output status
-factor-weaver data fetch --refresh  # refetch cached raw data
+uv sync                                    # create/update .venv from uv.lock
+uv run factor-weaver data                  # run all steps (fetch then build)
+uv run factor-weaver data fetch [steps]    # raw data acquisition only (cached)
+uv run factor-weaver data build [steps]    # derived datasets only
+uv run factor-weaver data --list           # step/output status
+uv run factor-weaver data fetch --refresh  # refetch cached raw data
 ```
 
 Run from the repository root so the relative `config/` and `data/` paths resolve.
