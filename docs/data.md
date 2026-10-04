@@ -38,10 +38,10 @@
     - sentiment
       - positive/negative sentiment based on posts or news
 - extra assets
-  - risk-free
-  - S&P500 stock index — `^GSPC` (`extra_prices.parquet`)
+  - risk-free - `^IRX` (T-bill annualized yield, not a price)
+  - S&P500 stock index - `^GSPC`
 - market-wide indicators
-  - VIX — `^VIX` (`extra_prices.parquet`)
+  - VIX - `^VIX`
 
 ## Sources
 

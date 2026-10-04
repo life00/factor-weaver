@@ -8,7 +8,6 @@
   - [x] build a top 50 universe
   - [x] obtain daily OHLCV data from LSEG
   - [x] decide on how to store extra assets in the universe (extra_prices.parquet)
-  - [ ] add ^IRX to yahoo extra_symbols (risk-free yield series; PLAN.md section 2)
   - [ ] behavioral data...
   - [ ] complete panel file (date, ric, *features) — prerequisite for Phase 2
 - models + eval (see PLAN.md section 9)

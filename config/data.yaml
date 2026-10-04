@@ -20,7 +20,7 @@ prices:
 yahoo:
   prices_out: data/raw/yahoo/prices
   extra_prices_out: data/interim/extra_prices.parquet
-  extra_symbols: ["^GSPC", "^VIX"] # extra series
+  extra_symbols: ["^GSPC", "^VIX", "^IRX"] # extra series
   symbol_overrides: {} # universe RIC -> Yahoo symbol (if ticker differs)
 
 universe:
