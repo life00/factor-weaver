@@ -10,7 +10,6 @@ requires-python = ">=3.10"
 dependencies = [
     "lseg-data>=2.0",
     "mlflow>=2.0",
-    "openpyxl>=3.0",
     "pandas>=2.0",
     "pyarrow>=14.0",
     "PyPortfolioOpt>=1.5",
@@ -40,3 +39,5 @@ select = ["E", "F", "I", "N", "W"]
 include = ["src"]
 pythonVersion = "3.10"
 typeCheckingMode = "basic"
+venvPath = "."
+venv = ".venv"

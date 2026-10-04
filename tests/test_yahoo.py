@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from factor_weaver.data import yahoo
+from factor_weaver.data.fetch import yahoo
 
 _COLS = ["date", "symbol", "open", "high", "low", "close", "volume"]
 
@@ -70,22 +70,11 @@ def test_fetch_symbols_caches_and_reuses(tmp_path, monkeypatch):
     assert (tmp_path / "cache" / "^VIX.parquet").exists()
     yahoo.fetch_symbols(cfg, ["^VIX"], "2020-01-01", "2020-01-31")
     assert calls == ["^VIX", "ENE"]  # second run served from cache
+    yahoo.fetch_symbols(cfg, ["^VIX"], "2020-01-01", "2020-01-31", refresh=True)
+    assert calls == ["^VIX", "ENE", "^VIX"]  # refresh bypasses the cache
 
 
 def test_fetch_symbols_empty_is_canonical_empty(tmp_path):
     out = yahoo.fetch_symbols({"yahoo": {"prices_out": tmp_path}}, [], "2020-01-01", "2020-01-02")
     assert out.empty
     assert list(out.columns) == _COLS
-
-
-def test_write_extra_prices_filters_and_writes(tmp_path):
-    raw = pd.concat([_one_day("^VIX"), _one_day("ENE")], ignore_index=True)
-    cfg = {
-        "yahoo": {
-            "extra_prices_out": tmp_path / "extra_prices.parquet",
-            "extra_symbols": ["^VIX"],
-        }
-    }
-    yahoo.write_extra_prices(cfg, raw)
-    out = pd.read_parquet(tmp_path / "extra_prices.parquet")
-    assert set(out["symbol"]) == {"^VIX"}

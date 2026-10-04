@@ -9,7 +9,7 @@ LSEG ticker (locks delisted flag + generated ticker).
 import pandas as pd
 import pytest
 
-from factor_weaver.data.universe import build_universe
+from factor_weaver.data.build.universe import build_universe
 
 RIC = {"A": "A.N", "B": "B.N", "C": "C.N", "D": "D.N", "E": "E.N^X99"}
 

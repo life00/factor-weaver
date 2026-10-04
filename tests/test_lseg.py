@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from factor_weaver.data.lseg import _normalize_history, fetch_history, resolve_ric
+from factor_weaver.data.fetch.lseg import _normalize_history, fetch_history, resolve_ric
 
 _FIELDS = {
     "OPEN_PRC": [1.0, 2.0],

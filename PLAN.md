@@ -32,10 +32,10 @@ Equivalence guarantees — the central design decision:
 
 ## 2. Prerequisites (data phase — separate work)
 
-1. Panel file (name/path TBD; placeholder `data/processed/panel.parquet` in
-   `config/eval.yaml`): long-tidy `(date, ric, *features)` for all universe
-   members 1994–2026 — technical, fundamental (EDGAR-anchored forward-fill),
-   behavioral (time-decayed) — strictly no look-ahead.
+1. Panel file (`panel.out` in `config/data.yaml`, `data/processed/panel.parquet`):
+   long-tidy `(date, ric, *features)` for all universe members 1994–2026 —
+   technical, fundamental (LSEG, report-date-anchored forward-fill), behavioral
+   (MarketPsych, time-decayed) — strictly no look-ahead.
 2. `data/interim/extra_prices.parquet`: `^GSPC`, `^VIX` + add `^IRX` to
    `yahoo.extra_symbols` in `config/data.yaml`. `^IRX` is a 13-week T-bill
    annualized YIELD, not a price — the engine converts it to a daily cash
@@ -48,9 +48,12 @@ Equivalence guarantees — the central design decision:
 
 ```
 src/factor_weaver/
-├── cli.py, math.py
-├── workflows/              # build_dataset, train, evaluate
+├── cli.py, config.py
+├── workflows/              # data, train, evaluate
 ├── data/                   # MODULE 1: raw sources -> panel file
+│   ├── pipeline.py         # step manifest + dependency-aware runner
+│   ├── fetch/              # external I/O -> data/raw/
+│   └── build/              # data/raw -> data/interim|processed/
 ├── models/                 # MODULE 2: ALL weight-producing models
 │   ├── __init__.py         # weight-provider interface + registry (name -> factory)
 │   ├── simple.py           # equal_weight (1/N), index_buy_hold (^GSPC)
@@ -126,7 +129,7 @@ Replicates the GKX forecasting methodology on our panel characteristics:
   ordered validation split; annual refit, monthly predictions
 - predicted returns → shared tangency optimizer (Ma et al. forecast→MV
   pipeline, evaluated net of transaction fees)
-- no look-ahead: training rows strictly < t (EDGAR-anchored panel)
+- no look-ahead: training rows strictly < t (report-date-anchored panel)
 - note: GKX predictability is strongest in microcaps (Jo et al. 2026); the
   top-50 large-cap universe makes this a conservative test
 

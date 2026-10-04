@@ -25,26 +25,30 @@ skinparam rectangle {
 
 package "factor_weaver" {
 
-  rectangle cli as "cli.py\nargparse dispatcher"
+  rectangle cli as "cli.py\nargparse + logging"
+  rectangle config as "config.py\nYAML loading"
 
   package "workflows" as workflows {
-    rectangle build_dataset as "build_dataset\n13 data steps"
+    rectangle data_wf as "data\nfetch / build"
     rectangle train as "train\nRL loop"
     rectangle evaluate as "evaluate\nbacktest"
   }
 
   package "data" as data_pkg {
-    rectangle parse_fund as "financialdatadb"
-    rectangle lseg as "lseg"
-    rectangle tickers as "tickers"
-    rectangle universe as "universe"
-    rectangle edgar as "edgar"
-    rectangle prices as "prices"
-    rectangle yahoo as "yahoo"
-    rectangle technicals as "technicals"
-    rectangle behavior as "behavior"
-    rectangle align as "align"
-    rectangle split as "split"
+    rectangle pipeline as "pipeline\nStep manifest + runner"
+    rectangle store as "store\nparquet + caches"
+    package "fetch" as fetch_pkg {
+      rectangle lseg as "lseg\nreference + OHLCV"
+      rectangle yahoo as "yahoo\nfallback + extras"
+      rectangle f_prices as "prices\ncache orchestration"
+    }
+    package "build" as build_pkg {
+      rectangle universe as "universe"
+      rectangle b_prices as "prices"
+      rectangle technicals as "technicals"
+      rectangle panel as "panel"
+      rectangle split as "split"
+    }
   }
 
   package "models" as models_pkg {
@@ -65,24 +69,18 @@ package "factor_weaver" {
     rectangle backtest as "backtest\nshared daily engine"
   }
 
-  rectangle math as "math\nfinancial helpers"
-
 }
 
-cli --> build_dataset : run
-cli --> train : run
-cli --> evaluate : run
+cli --> config
+cli --> data_wf
+cli --> train
+cli --> evaluate
 
-build_dataset --> parse_fund
-build_dataset --> lseg
-build_dataset --> universe
-build_dataset --> edgar
-build_dataset --> prices
-prices --> yahoo
-build_dataset --> technicals
-build_dataset --> behavior
-build_dataset --> align
-build_dataset --> split
+data_wf --> pipeline
+pipeline --> fetch_pkg
+pipeline --> build_pkg
+fetch_pkg --> store
+build_pkg --> store
 
 train --> env
 train --> model
@@ -96,21 +94,19 @@ mean_var --> optimize
 ml_fore --> optimize
 bl --> optimize
 
-env --> math
-backtest --> math
-
 note bottom of workflows
-  Each pipeline is a thin orchestrator.
-  Data pipeline: `factor-weaver data [steps ...]`
-  runs selected steps in order, empty = all.
+  `factor-weaver data [fetch|build] [steps ...]`
+  runs the manifest in order; fetch steps
+  write data/raw/, build steps write
+  data/interim|processed/.
 end note
 
 note right of data_pkg
   Disk is the orchestrator.
-  Each step writes parquet,
-  next step reads it.
-  Fetch steps cache downloads
-  (existence = cached).
+  Each step declares config-key
+  inputs/outputs; the runner pulls
+  missing producers and caches fetches
+  (existence = cached, --refresh bypasses).
 end note
 
 note right of models_pkg

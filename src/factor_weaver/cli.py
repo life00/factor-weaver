@@ -1,29 +1,35 @@
-"""factor-weaver CLI: two-level dispatch to workflows."""
+"""factor-weaver CLI: subcommand dispatch and logging setup."""
 
 import argparse
-from pathlib import Path
-from typing import Any
+import logging
+from importlib.metadata import version
 
-import yaml
-
-from factor_weaver.workflows import build_dataset, evaluate, train
-
-
-def _load_config() -> dict[str, Any]:
-    path = Path("config/data.yaml")
-    if not path.is_file():
-        return {}
-    with open(path) as f:
-        return dict(yaml.safe_load(f) or {})
+from factor_weaver import config
+from factor_weaver.workflows import data, evaluate, train
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="factor-weaver")
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {version('factor-weaver')}"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="debug logging")
     sub = parser.add_subparsers(required=True)
-    for workflow in (build_dataset, train, evaluate):
+    for workflow in (data, train, evaluate):
         workflow.add_arguments(sub)
+    for workflow_parser in sub.choices.values():
+        workflow_parser.add_argument(
+            "-v", "--verbose", action="store_true", default=argparse.SUPPRESS
+        )
+
     args = parser.parse_args(argv)
-    args.func(_load_config(), args)
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    cfg = config.load(*getattr(args, "configs", ("data",)))
+    args.func(cfg, args)
 
 
 if __name__ == "__main__":

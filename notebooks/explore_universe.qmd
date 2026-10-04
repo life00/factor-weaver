@@ -5,7 +5,7 @@ jupyter: python3
 
 Exploring the processed universe data:
 
-- `data/interim/universe.parquet`: dynamic top-50 S&P500 universe per quarter; columns `quarter_end`, `ric`, `ticker`, `delisted`, `marketcap`, `rank` (see `src/factor_weaver/data/universe.py`)
+- `data/interim/universe.parquet`: dynamic top-50 S&P500 universe per quarter; columns `quarter_end`, `ric`, `ticker`, `delisted`, `marketcap`, `rank` (see `src/factor_weaver/data/build/universe.py`)
 
 The membership is reconstructed backwards from the current S&P500 constituent snapshot using joiner/leaver events and ranked by as-of market cap. Delisted RICs have no LSEG ticker; their ticker is the base RIC symbol (e.g. TWX) and `delisted=True`.
 
@@ -65,21 +65,5 @@ FROM 'data/interim/universe.parquet'
 GROUP BY ticker
 HAVING count(DISTINCT ric) > 1
 ORDER BY rics DESC, ticker
-""")
-```
-
-### Coverage vs fundamentals
-
-```{python}
-duckdb.sql("""
-WITH universe AS (
-    SELECT DISTINCT ticker FROM 'data/interim/universe.parquet'
-),
-fund AS (
-    SELECT DISTINCT ticker FROM 'data/raw/financialdatadb/fundamentals.parquet'
-)
-SELECT (SELECT count(*) FROM universe) AS universe_tickers,
-       (SELECT count(*) FROM universe u WHERE u.ticker IN (SELECT * FROM fund)) AS in_fundamentals,
-       (SELECT count(*) FROM universe u WHERE u.ticker NOT IN (SELECT * FROM fund)) AS not_in_fundamentals
 """)
 ```

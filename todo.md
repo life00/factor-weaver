@@ -12,8 +12,8 @@
   - [ ] select and fetch fundamental variables
   - [ ] complete panel data file (date, ric, *features)
 - workflow
-  - [ ] refactor cli workflow logic to be more consistent
-  - [ ] standardize logging across the whole project
+  - [x] refactor cli workflow logic to be more consistent (fetch/build split, manifest + caching)
+  - [x] standardize logging across the whole project
 - docs
   - [ ] properly redo documentation in markdown with mermaid charts
 - models + eval

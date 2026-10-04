@@ -4,6 +4,7 @@ S&P500 membership history is reconstructed (in universe.py) from the current
 constituent snapshot as anchor plus joiner/leaver events applied backwards.
 """
 
+import logging
 import os
 from contextlib import contextmanager
 from datetime import date
@@ -12,6 +13,10 @@ from typing import Any, Iterator
 
 import pandas as pd
 from dotenv import load_dotenv
+
+from factor_weaver.data import store
+
+log = logging.getLogger(__name__)
 
 _ENV_VARS = ("APP_KEY", "RDP_LOGIN", "RDP_PASSWORD")
 
@@ -55,7 +60,7 @@ def _credentials() -> dict[str, str]:
 
 
 @contextmanager
-def _session() -> Iterator[Any]:
+def session() -> Iterator[Any]:
     """Open a platform session (OAuth2 password grant); yields the lseg.data module."""
     import lseg.data as ld
 
@@ -84,13 +89,12 @@ def fetch_constituents(cfg: dict[str, Any]) -> None:
     Writes: <lseg.constituents_out> (columns: ric)
     """
     out = Path(cfg["lseg"]["constituents_out"])
-    with _session() as ld:
+    with session() as ld:
         df = ld.get_data(universe=["0#.SPX"], fields=["TR.RIC"])
     df = df[["RIC"]].rename(columns={"RIC": "ric"})
     df = df.drop_duplicates().dropna(subset=["ric"])
-    out.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(out, index=False)
-    print(f"wrote {out} ({len(df)} constituents)")
+    store.write_parquet(df, out)
+    log.info("wrote %s (%d constituents)", out, len(df))
 
 
 def fetch_joiners_leavers(cfg: dict[str, Any]) -> None:
@@ -104,7 +108,7 @@ def fetch_joiners_leavers(cfg: dict[str, Any]) -> None:
     """
     c = cfg["lseg"]
     out = Path(c["joiners_leavers_out"])
-    with _session() as ld:
+    with session() as ld:
         df = ld.get_data(
             universe=[".SPX"],
             fields=_JL_FIELDS,
@@ -118,9 +122,8 @@ def fetch_joiners_leavers(cfg: dict[str, Any]) -> None:
     df = df[keep].rename(columns=_JL_TITLES)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["date", "ric"]).drop_duplicates(subset=["date", "ric", "change"])
-    out.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(out, index=False)
-    print(f"wrote {out} ({len(df)} events)")
+    store.write_parquet(df, out)
+    log.info("wrote %s (%d events)", out, len(df))
 
 
 def fetch_mapping(cfg: dict[str, Any]) -> None:
@@ -141,7 +144,7 @@ def fetch_mapping(cfg: dict[str, Any]) -> None:
             f"run lseg-constituents/lseg-joiners-leavers first; missing: {missing}"
         )
     rics = list(pd.concat([pd.read_parquet(p)["ric"] for p in inputs]).dropna().drop_duplicates())
-    with _session() as ld:
+    with session() as ld:
         df = ld.get_data(
             universe=rics,
             fields=["TR.TickerSymbol", "TR.CompanyName", "TR.OrganizationID"],
@@ -155,9 +158,8 @@ def fetch_mapping(cfg: dict[str, Any]) -> None:
         }
     )[["ric", "ticker", "name", "permid"]]
     df = df.dropna(subset=["ric"])
-    out.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(out, index=False)
-    print(f"wrote {out} ({len(df)} rics)")
+    store.write_parquet(df, out)
+    log.info("wrote %s (%d rics)", out, len(df))
 
 
 def _normalize(df: pd.DataFrame, titles: dict[str, str]) -> pd.DataFrame:
@@ -246,7 +248,7 @@ def fetch_market_cap(cfg: dict[str, Any]) -> None:
     import lseg.data as ld
 
     ld.get_config().set_param("http.request-timeout", 300)  # default 20s timed out on datagrid
-    with _session() as ld:
+    with session() as ld:
         df = pd.concat(
             [
                 _normalize(
@@ -269,6 +271,5 @@ def fetch_market_cap(cfg: dict[str, Any]) -> None:
             )
             df = pd.concat([df, fb])
     df = df.drop_duplicates(subset=["ric", "date"])
-    out.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(out, index=False)
-    print(f"wrote {out} ({len(df)} rows)")
+    store.write_parquet(df, out)
+    log.info("wrote %s (%d rows)", out, len(df))

@@ -80,7 +80,7 @@
   - sklearn GradientBoostingRegressor (max_depth=L, learning_rate=ν, n_estimators=B per Table A.5), tuned on a temporally ordered validation split
   - annual refit (GKX cadence), monthly predictions
   - predicted returns → shared `optimize.tangency`
-  - training rows strictly < t (no look-ahead; EDGAR-anchored panel)
+  - training rows strictly < t (no look-ahead; report-date-anchored panel)
 - config: `horizon`, `refit`, `grid`, `weight_cap`
 - deviations: composites vs GKX's 94 characteristics; top-50 large-cap vs all CRSP; sklearn GBRT vs paper's gbm; costs net (GKX gross, Ma net)
 - GKX predictability is strongest in microcaps (Jo et al., 2026); the top-50 large-cap universe makes this a conservative test

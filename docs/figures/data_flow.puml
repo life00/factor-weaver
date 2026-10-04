@@ -21,103 +21,83 @@ skinparam arrow {
   FontSize 9
 }
 
-actor "financialdatadb\n(xlsx, 26 files)" as fdb
-actor "LSEG data API\n(S&P500 list, OHLCV)" as lseg
+actor "LSEG data API" as lseg
 actor "Yahoo Finance\n(yfinance)" as yahoo
-actor "SEC EDGAR\n(filings API)" as edgar
-actor "market-behavior\n(sibling repo)" as beh
+actor "MarketPsych\n(planned)" as mpsych
 
-database "data/raw/" as raw
+package "fetch — data/raw/ only" {
+  rectangle "fetch_constituents" as f_cons
+  rectangle "fetch_joiners_leavers" as f_jl
+  rectangle "fetch_mapping" as f_map
+  rectangle "fetch_market_cap" as f_cap
+  rectangle "fetch_lseg_prices" as f_lp
+  rectangle "fetch_yahoo_prices" as f_yp
+}
 
-rectangle "parse_fundamentals\nxlsx → long parquet" as parse_fundamentals
-rectangle "parse_companies\n_US_listed_companies.xlsx → parquet" as parse_companies
-rectangle "fetch_constituents\nS&P500 snapshot" as fetch_constituents
-rectangle "fetch_joiners_leavers\nmembership changes since 1994" as fetch_joiners_leavers
-rectangle "fetch_mapping\nRIC → ticker/PermID" as fetch_mapping
-rectangle "fetch_market_cap\nquarterly, TR.CompanyMarketCap" as fetch_market_cap
-rectangle "build_universe\ntop-50 S&P500" as build_universe
-rectangle "fetch_filing_dates\nSEC submissions" as fetch_filing_dates
-rectangle "fetch_prices\nLSEG + Yahoo fallback/extra" as fetch_prices
-rectangle "compute_technicals\nrolling indicators" as compute_technicals
-rectangle "load_behavior\nsentiment/attention" as load_behavior
-rectangle "align_dataset\nEDGAR-anchored merge" as align_dataset
+database "constituents.parquet" as cons
+database "joiners_leavers.parquet" as jl
+database "ric_mapping.parquet" as map
+database "market_cap.parquet" as cap
+database "lseg/prices/<RIC>.parquet\n(yahoo/prices/<symbol>.parquet)" as pxcache
 
-database "fundamentals\n.parquet" as fund_pq
-database "companies\n.parquet\n(financialdatadb)" as comp_pq
-database "constituents\n.parquet" as cons_pq
-database "joiners_leavers\n.parquet" as jl_pq
-database "ric_mapping\n.parquet" as map_pq
-database "market_cap\n.parquet" as cap_pq
-database "universe\n.parquet" as univ_pq
-database "companies\n.parquet\n(registry)" as reg_pq
-database "filing_dates\n.parquet" as fd_pq
-database "prices\n.parquet" as price_pq
-database "extra_prices\n.parquet" as extra_pq
-database "technicals\n.parquet" as tech_pq
-database "behavior\n.parquet" as beh_pq
-database "data/processed/" as processed
+package "build — data/interim|processed only" {
+  rectangle "build_universe\ntop-50 S&P500" as b_univ
+  rectangle "build_prices\ncanonical OHLCV" as b_px
+  rectangle "compute_technicals\nrolling indicators" as b_tech
+  rectangle "build_panel\nreport-date anchored" as b_panel
+  rectangle "split_dataset\ntrain / test" as b_split
+}
 
-fdb --> raw
-lseg --> raw
-yahoo --> raw
-edgar --> raw
-beh --> raw
+database "universe.parquet\ncompanies.parquet" as univ
+database "prices.parquet\nextra_prices.parquet" as px
+database "technicals.parquet" as tech
+database "panel.parquet" as panel
+database "train.parquet\ntest.parquet" as splits
 
-raw --> parse_fundamentals
-parse_fundamentals --> fund_pq
+lseg --> f_cons
+lseg --> f_jl
+lseg --> f_map
+lseg --> f_cap
+lseg --> f_lp
+yahoo --> f_yp
+mpsych ..> b_panel : behavioral (planned)
 
-raw --> parse_companies
-parse_companies --> comp_pq
+f_cons --> cons
+f_jl --> jl
+f_map --> map
+f_cap --> cap
+f_lp --> pxcache
+f_yp --> pxcache
 
-raw --> fetch_constituents
-fetch_constituents --> cons_pq
+cons --> b_univ
+jl --> b_univ
+map --> b_univ
+cap --> b_univ
+b_univ --> univ
 
-raw --> fetch_joiners_leavers
-fetch_joiners_leavers --> jl_pq
+univ --> b_px
+pxcache --> b_px
+b_px --> px
 
-raw --> fetch_mapping
-fetch_mapping --> map_pq
+px --> b_tech
+b_tech --> tech
+px --> b_panel
+tech --> b_panel
+b_panel --> panel
+panel --> b_split
+b_split --> splits
 
-raw --> fetch_market_cap
-fetch_market_cap --> cap_pq
-
-cons_pq --> build_universe
-jl_pq --> build_universe
-map_pq --> build_universe
-cap_pq --> build_universe
-build_universe --> univ_pq
-build_universe --> reg_pq
-
-reg_pq --> fetch_filing_dates
-fetch_filing_dates --> fd_pq
-
-reg_pq --> fetch_prices
-fetch_prices --> price_pq
-fetch_prices --> extra_pq
-
-note right of fetch_prices
-  Raw per-RIC/symbol caches in data/raw/
-  (existence = cached, delete to refetch)
+note right of f_lp
+  Existence = cached:
+  whole-step skip for reference files,
+  per-RIC / per-symbol skip for prices.
+  --refresh refetches selected steps.
 end note
 
-price_pq --> compute_technicals
-compute_technicals --> tech_pq
-
-raw --> load_behavior
-load_behavior --> beh_pq
-
-fund_pq --> align_dataset
-fd_pq --> align_dataset
-price_pq --> align_dataset
-tech_pq --> align_dataset
-beh_pq --> align_dataset
-align_dataset --> processed
-
-note right of align_dataset
-  Forward-fill fundamentals anchored to EDGAR filing date
-  (no look-ahead bias)
-  Freshness counter for quarterly data
-  Time-decay for behavioral features
+note right of b_panel
+  Forward-fill LSEG fundamentals from
+  report dates; time-decay behavioral
+  features. Strictly no look-ahead.
 end note
 
 @enduml

@@ -2,7 +2,6 @@
 fees_bps: 10 # per-side turnover cost; median implementation shortfall (Frazzini-Israel-Moskowitz)
 rebalance_default: M # default frequency; per-model overrides in models.yaml
 rf_symbol: ^IRX # 13-week T-bill annualized yield (NOT a price) -> daily cash return
-panel: data/processed/panel.parquet # placeholder path/name — set when the data phase lands
 window: # evaluation window — from the train/test split once defined
   start: null
   end: null

@@ -1,7 +1,12 @@
+import logging
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+from factor_weaver.data import store
+
+log = logging.getLogger(__name__)
 
 _OUT_COLS: list[str] = ["quarter_end", "ric", "ticker", "delisted", "marketcap", "rank"]
 _COMPANY_COLS: list[str] = [
@@ -93,9 +98,8 @@ def build_universe(cfg: dict[str, Any]) -> None:
     merged = merged[merged["rank"] <= u["top_n"]]
     per_q = merged.groupby("quarter_end").size()
     if (per_q < u["top_n"]).any():
-        print(
-            "warning:"
-            f" {int((per_q < u['top_n']).sum())} quarters rank fewer than {u['top_n']} members"
+        log.warning(
+            "%d quarters rank fewer than %d members", int((per_q < u["top_n"]).sum()), u["top_n"]
         )
     mapping_raw: pd.DataFrame = pd.read_parquet(inputs["mapping_out"])
     mapping = mapping_raw.loc[:, ["ric", "ticker", "name", "permid"]].drop_duplicates(subset="ric")
@@ -118,11 +122,9 @@ def build_universe(cfg: dict[str, Any]) -> None:
         .loc[:, _COMPANY_COLS]
     )
     companies_out = Path(u["companies_out"])
-    companies_out.parent.mkdir(parents=True, exist_ok=True)
-    companies.to_parquet(companies_out, index=False)
+    store.write_parquet(companies, companies_out)
 
     df = df.loc[:, _OUT_COLS].sort_values(by=["quarter_end", "rank"])
-    out.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(out, index=False)
-    print(f"wrote {out} ({len(df)} rows, {df['quarter_end'].nunique()} quarters)")
-    print(f"wrote {companies_out} ({len(companies)} companies)")
+    store.write_parquet(df, out)
+    log.info("wrote %s (%d rows, %d quarters)", out, len(df), df["quarter_end"].nunique())
+    log.info("wrote %s (%d companies)", companies_out, len(companies))

@@ -1,4 +1,4 @@
-"""Black-Litterman-Bayes benchmark: Kolm & Ritter (2021) replication (derivation: Kolm & Ritter, 2017)."""
+"""Black-Litterman-Bayes benchmark: Kolm & Ritter (2021), derivation Kolm & Ritter (2017)."""
 
 import pandas as pd
 

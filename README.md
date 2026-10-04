@@ -7,7 +7,7 @@ Master's thesis developing a reinforcement learning framework for portfolio mana
 
 ## Status
 
-- Data pipeline implemented: financialdatadb fundamentals, LSEG constituents/market cap, top-50 universe, prices with Yahoo fallback.
+- Data pipeline implemented: LSEG constituents/market cap, top-50 universe, LSEG prices with Yahoo fallback and extra series.
 - Models and evaluation stubbed per [`PLAN.md`](PLAN.md) (Phases 1 to 3).
 
 ## Tech stack
@@ -19,8 +19,16 @@ Master's thesis developing a reinforcement learning framework for portfolio mana
 
 ```sh
 pip install -e .[dev]
-factor-weaver data [steps ...]   # empty = run all steps in order
+factor-weaver data                  # run all steps (fetch then build)
+factor-weaver data fetch [steps]    # raw data acquisition only (cached)
+factor-weaver data build [steps]    # derived datasets only
+factor-weaver data --list           # step/output status
+factor-weaver data fetch --refresh  # refetch cached raw data
 ```
+
+Run from the repository root so the relative `config/` and `data/` paths resolve.
+Fetch steps are existence-cached (whole outputs and per-RIC/per-symbol price caches);
+`-v` logs every cache hit/fetch.
 
 ## Repository structure
 
@@ -35,30 +43,37 @@ factor-weaver data [steps ...]   # empty = run all steps in order
 ├── notebooks/
 ├── src/factor_weaver/
 │   ├── cli.py
-│   ├── workflows/
+│   ├── config.py
+│   ├── workflows/          # data, train, evaluate
 │   ├── data/
+│   │   ├── pipeline.py     # ordered Step manifest + runner
+│   │   ├── store.py
+│   │   ├── fetch/          # LSEG, Yahoo (writes data/raw/)
+│   │   └── build/          # universe, prices, technicals, panel, split
 │   ├── models/
 │   │   └── rl/
-│   ├── eval/
-│   └── math.py
+│   └── eval/
 ├── experiments/
 └── tests/
 ```
 
 ## Data pipeline
 
-1. `parse-fundamentals`
-2. `parse-companies`
-3. `lseg-constituents`
-4. `lseg-joiners-leavers`
-5. `lseg-mapping`
-6. `lseg-market-cap`
-7. `universe`
-8. `edgar-filing-dates` (stub)
-9. `fetch-prices`
-10. `compute-technicals` (stub)
-11. `load-behavior` (stub)
-12. `align` (stub)
-13. `split` (stub)
+Fetch (writes `data/raw/` only):
+
+1. `lseg-constituents`
+2. `lseg-joiners-leavers`
+3. `lseg-mapping`
+4. `lseg-market-cap`
+5. `lseg-prices` (per-RIC caches, LSEG `ric_fallbacks` applied)
+6. `yahoo-prices` (fallback RICs + extra index/ETF series)
+
+Build (writes `data/interim|processed` only):
+
+7. `universe` (top-50 membership + company registry)
+8. `prices` (canonical OHLCV + extra series)
+9. `technicals` (stub)
+10. `panel` (stub)
+11. `split` (stub)
 
 Architecture and data-flow diagrams: [`docs/figures/`](docs/figures/).

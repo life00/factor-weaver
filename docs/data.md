@@ -16,7 +16,7 @@
   - redefine list in each period
   - exclude RICs with no price content (`universe.exclude_rics`); next-ranked company fills the slot
 - alignment
-  - forward-fill fundamentals with per-group staleness counter
+  - forward-fill fundamentals from their LSEG report date with per-group staleness counter
   - time-decay for behavioral features
 
 ## Variables
@@ -45,22 +45,19 @@
 
 ## Sources
 
-- fundamental
-  - <https://financialdatadb.com/> — raw xlsx files (26 `*_tickers.xlsx` A-Z, one sheet per ticker) live in `data/raw/financialdatadb/us_financials/`
 - equity universe
   - LSEG data API — S&P500 constituent list, joiner/leaver history, RIC mapping; market cap via `TR.CompanyMarketCap` (fallback `TR.F.MktCap`) for top-50 selection
-  - `universe.build_universe` also writes `data/interim/companies.parquet`, the distinct RIC → ticker/name/permid registry used by later steps
-- filing dates
-  - <https://www.sec.gov/data-research/sec-markets-data/financial-statement-data-sets> — EDGAR submissions API for 10-Q filing dates (anchors fundamental alignment, avoids look-ahead bias)
+  - `build/universe.py` also writes `data/interim/companies.parquet`, the distinct RIC → ticker/name/permid registry used by the price steps
 - price
   - LSEG data API — daily OHLCV (RTS-adjusted), primary source; per-RIC cache in `data/raw/lseg/prices/`
   - stale RICs retargeted via `lseg.ric_fallbacks` (FSR.N^B01 → USB.N, KHC.OQ → KHC.N), rows relabelled
-  - <https://finance.yahoo.com/> via `yfinance` — fallback for remaining gaps (validated against the universe window) plus config index/indicator series (`data/interim/extra_prices.parquet`); per-symbol cache in `data/raw/yahoo/prices/`
+  - <https://finance.yahoo.com/> via `yfinance` — fallback for RICs without LSEG content (validated against the universe membership window) plus the configured `extra_symbols` (index/indicator series) into `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
+- fundamental
+  - LSEG data API — planned, not yet implemented (`build/panel.py` is the integration point)
 - technical
   - computed from prices (moving averages, volume indicators)
 - behavioral
-  - <https://huggingface.co/datasets/Brianferrell787/financial-news-multisource>
-  - sibling repo `market-behavior-archive` (pre-computed sentiment/attention parquet)
+  - <https://www.marketpsych.com/> — planned, not yet implemented
 
 ## Issues
 
@@ -82,5 +79,6 @@
   (`universe.exclude_rics`), next-ranked company backfills its 2 quarters (2000Q3/Q4)
 - **Adjustment basis differs across vendors**: LSEG RTS vs Yahoo split/dividend-adjusted
   (back-adjusted on each dividend); Yahoo rows only fill LSEG gaps
-- **Existence-based caches**: delete `data/raw/lseg/prices/` and `data/raw/yahoo/prices/`
-  to refetch after changing the universe window
+- **Existence-based caches**: reference files and per-RIC/per-symbol price caches are
+  skipped when present; use `factor-weaver data fetch --refresh` (optionally per step,
+  e.g. `data fetch lseg-constituents --refresh`) instead of deleting files
