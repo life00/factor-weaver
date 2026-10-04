@@ -9,9 +9,14 @@
   - [x] obtain daily OHLCV data from LSEG
   - [x] decide on how to store extra assets in the universe (extra_prices.parquet)
   - [ ] behavioral data...
-  - [ ] complete panel file (date, ric, *features) — prerequisite for Phase 2
-- models + eval (see PLAN.md section 9)
-  - [ ] Phase 1: shared engine + simple (1/N, index buy-and-hold) + mean_variance + optimize + workflow/MLflow + tests
-  - [ ] Phase 2 (needs panel): ml_forecast (GKX GBRT) + black_litterman (Kolm et al. BLB)
-  - [ ] Phase 3 (needs RL training): models/rl/ env, model, ppo, policy adapter
-- [ ] properly implement documentation in markdown with mermaid charts
+  - [ ] select and fetch fundamental variables
+  - [ ] complete panel data file (date, ric, *features)
+- workflow
+  - [ ] refactor cli workflow logic to be more consistent
+  - [ ] standardize logging across the whole project
+- docs
+  - [ ] properly redo documentation in markdown with mermaid charts
+- models + eval
+  - [ ] shared engine + simple (1/N, index buy-and-hold) + mean_variance + optimize + workflow/MLflow + tests
+  - [ ] ml_forecast (GKX GBRT) + black_litterman (Kolm et al. BLB)
+  - [ ] models/rl/ env, model, ppo, policy adapter
