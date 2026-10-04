@@ -13,10 +13,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Literal
 
+from rich.text import Text
+
 from factor_weaver.data.build import panel, split, technicals, universe
 from factor_weaver.data.build import prices as build_prices
 from factor_weaver.data.fetch import lseg
 from factor_weaver.data.fetch import prices as fetch_prices
+from factor_weaver.output import out
 
 log = logging.getLogger(__name__)
 
@@ -198,6 +201,11 @@ def print_status(cfg: dict[str, Any], phase: str | None = None) -> None:
     for step in STEPS:
         if phase is not None and step.phase != phase:
             continue
-        mark = "ok" if all(_exists(cfg, k) for k in step.outs) else "--"
+        exists = all(_exists(cfg, k) for k in step.outs)
         paths = ", ".join(str(_path(cfg, k)) for k in step.outs)
-        print(f"{mark} {step.name:<20} {step.phase:<5} {paths}")
+        line = Text()
+        line.append("ok" if exists else "--", style="green" if exists else "red")
+        line.append(f" {step.name:<20} ")
+        line.append(f"{step.phase:<5}", style="cyan")
+        line.append(f" {paths}", style="dim")
+        out.print(line)
