@@ -68,7 +68,7 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
 
 - equity universe
   - LSEG data API — S&P500 constituent list, joiner/leaver history, RIC mapping; market cap via `TR.CompanyMarketCap` (fallback `TR.F.MktCap`) for top-50 selection
-  - `build/universe.py` also writes `data/interim/companies.parquet`, the distinct RIC → ticker/name/permid registry used by the price steps
+  - `build/universe.py` also writes `data/interim/assets.parquet`, the distinct RIC → ticker/name/permid registry used by the price steps
 - price
   - LSEG data API — daily OHLCV (RTS-adjusted), primary source; per-RIC cache in `data/raw/lseg/prices/`
   - stale RICs retargeted via `lseg.ric_fallbacks` (FSR.N^B01 → USB.N, KHC.OQ → KHC.N), rows relabelled

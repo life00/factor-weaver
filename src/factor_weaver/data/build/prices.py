@@ -1,7 +1,7 @@
 """Assemble canonical interim price files from the raw LSEG/Yahoo caches.
 
 For each universe RIC the LSEG cache wins; RICs without it fall back to their
-Yahoo symbol, validated against the company's membership window. Configured
+Yahoo symbol, validated against the asset's membership window. Configured
 extra index/ETF series are written separately for the evaluation engine.
 """
 
@@ -41,21 +41,21 @@ def _yahoo_symbol(cfg: dict[str, Any], ric: str, ticker: str) -> str:
 def build_prices(cfg: dict[str, Any]) -> None:
     """Merge raw caches into <prices.out> plus <yahoo.extra_prices_out>.
 
-    Reads: <universe.companies_out>, <lseg.prices_out>, <yahoo.prices_out>
+    Reads: <universe.assets_out>, <lseg.prices_out>, <yahoo.prices_out>
     Writes: <prices.out> (columns: date, ric, open..volume),
             <yahoo.extra_prices_out> (columns: date, symbol, open..volume)
     """
-    registry_path = Path(cfg["universe"]["companies_out"])
-    if not registry_path.exists():
-        raise FileNotFoundError(f"run the universe step first; missing: {registry_path}")
-    companies = pd.read_parquet(registry_path)
+    assets_path = Path(cfg["universe"]["assets_out"])
+    if not assets_path.exists():
+        raise FileNotFoundError(f"run the universe step first; missing: {assets_path}")
+    assets = pd.read_parquet(assets_path)
     lseg_dir = Path(cfg["lseg"]["prices_out"])
     yahoo_dir = Path(cfg["yahoo"]["prices_out"])
 
     frames: dict[str, pd.DataFrame] = {}
     n_lseg = n_yahoo = 0
     missing: list[str] = []
-    for row in companies.to_dict("records"):
+    for row in assets.to_dict("records"):
         ric = str(row["ric"])
         df = _read_cache(store.cache_path(lseg_dir, ric, url_quote=True))
         if df is not None and not df.empty:

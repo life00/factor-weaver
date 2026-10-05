@@ -9,7 +9,7 @@ from factor_weaver.data import store
 log = logging.getLogger(__name__)
 
 _OUT_COLS: list[str] = ["quarter_end", "ric", "ticker", "delisted", "marketcap", "rank"]
-_COMPANY_COLS: list[str] = [
+_ASSET_COLS: list[str] = [
     "ric",
     "ticker",
     "name",
@@ -35,9 +35,9 @@ def build_universe(cfg: dict[str, Any]) -> None:
     Writes: <universe.universe_out> (columns: quarter_end, ric, ticker, delisted,
             marketcap, rank). Delisted RICs have no LSEG ticker; their ticker
             is the base RIC symbol (e.g. TWX.N^A01 -> TWX) and delisted=True.
-            <universe.companies_out> (columns: ric, ticker, name, permid,
+            <universe.assets_out> (columns: ric, ticker, name, permid,
             delisted, first/last_quarter_end): one row per distinct universe
-            RIC, the global company registry for downstream steps.
+            RIC, the global asset registry for downstream steps.
     """
     c = cfg["lseg"]
     u = cfg["universe"]
@@ -109,7 +109,7 @@ def build_universe(cfg: dict[str, Any]) -> None:
     df["delisted"] = df["ticker"].isna()
     df["ticker"] = df["ticker"].fillna(df["ric"].str.split(".").str[0])
 
-    companies = (
+    assets = (
         df.groupby("ric", as_index=False)
         .agg(
             ticker=("ticker", "first"),
@@ -119,12 +119,12 @@ def build_universe(cfg: dict[str, Any]) -> None:
             first_quarter_end=("quarter_end", "min"),
             last_quarter_end=("quarter_end", "max"),
         )
-        .loc[:, _COMPANY_COLS]
+        .loc[:, _ASSET_COLS]
     )
-    companies_out = Path(u["companies_out"])
-    store.write_parquet(companies, companies_out)
+    assets_out = Path(u["assets_out"])
+    store.write_parquet(assets, assets_out)
 
     df = df.loc[:, _OUT_COLS].sort_values(by=["quarter_end", "rank"])
     store.write_parquet(df, out)
     log.info("wrote %s (%d rows, %d quarters)", out, len(df), df["quarter_end"].nunique())
-    log.info("wrote %s (%d companies)", companies_out, len(companies))
+    log.info("wrote %s (%d assets)", assets_out, len(assets))

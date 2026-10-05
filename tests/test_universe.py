@@ -93,7 +93,7 @@ def cfg(tmp_path):
             "start": "2020-01-01",
             "end": "2021-03-31",
             "universe_out": g / "universe.parquet",
-            "companies_out": g / "companies.parquet",
+            "assets_out": g / "assets.parquet",
         },
     }
 
@@ -127,16 +127,16 @@ def test_exclude_rics_backfills_and_drops_from_registry(cfg):
     assert RIC["E"] not in set(universe["ric"])
     q = universe[universe["quarter_end"] == pd.Timestamp("2020-03-31")]
     assert RIC["C"] in set(q["ric"])  # next-ranked company backfills the slot
-    companies = pd.read_parquet(cfg["universe"]["companies_out"])
-    assert RIC["E"] not in set(companies["ric"])
+    assets = pd.read_parquet(cfg["universe"]["assets_out"])
+    assert RIC["E"] not in set(assets["ric"])
 
 
-def test_companies_registry(cfg):
+def test_assets_registry(cfg):
     cfg["universe"]["top_n"] = 3
     build_universe(cfg)
-    companies = pd.read_parquet(cfg["universe"]["companies_out"])
-    assert set(companies["ric"]) == {RIC["A"], RIC["B"], RIC["D"], RIC["E"]}
-    assert set(companies.columns) == {
+    assets = pd.read_parquet(cfg["universe"]["assets_out"])
+    assert set(assets["ric"]) == {RIC["A"], RIC["B"], RIC["D"], RIC["E"]}
+    assert set(assets.columns) == {
         "ric",
         "ticker",
         "name",
@@ -145,12 +145,12 @@ def test_companies_registry(cfg):
         "first_quarter_end",
         "last_quarter_end",
     }
-    e = companies.loc[companies["ric"] == RIC["E"]].iloc[0]
+    e = assets.loc[assets["ric"] == RIC["E"]].iloc[0]
     assert bool(e["delisted"]) and e["ticker"] == "E" and e["name"] == "Company E"
     assert e["permid"] == "5"
     assert e["first_quarter_end"] == pd.Timestamp("2020-03-31")
     assert e["last_quarter_end"] == pd.Timestamp("2020-03-31")
-    a = companies.loc[companies["ric"] == RIC["A"]].iloc[0]
+    a = assets.loc[assets["ric"] == RIC["A"]].iloc[0]
     assert not bool(a["delisted"])
     assert a["first_quarter_end"] == pd.Timestamp("2020-03-31")
     assert a["last_quarter_end"] == pd.Timestamp("2021-03-31")

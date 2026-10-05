@@ -91,7 +91,7 @@ def _cache_frame(ric: str, dates: list[str]) -> pd.DataFrame:
 
 
 def test_build_prices_prefers_lseg_then_validated_fallback(tmp_path):
-    registry = pd.DataFrame(
+    assets = pd.DataFrame(
         {
             "ric": ["A.N", "B.N"],
             "ticker": ["A", "B"],
@@ -99,13 +99,13 @@ def test_build_prices_prefers_lseg_then_validated_fallback(tmp_path):
             "last_quarter_end": pd.to_datetime(["2020-01-10", "2020-01-10"]),
         }
     )
-    store.write_parquet(registry, tmp_path / "companies.parquet")
+    store.write_parquet(assets, tmp_path / "assets.parquet")
     store.write_parquet(_cache_frame("A.N", ["2020-01-02"]), tmp_path / "lseg" / "A.N.parquet")
     store.write_parquet(
         _cache_frame("B", ["2020-01-02", "2020-01-10"]), tmp_path / "yahoo" / "B.parquet"
     )
     cfg = {
-        "universe": {"companies_out": tmp_path / "companies.parquet"},
+        "universe": {"assets_out": tmp_path / "assets.parquet"},
         "lseg": {"prices_out": tmp_path / "lseg"},
         "yahoo": {
             "prices_out": tmp_path / "yahoo",
@@ -123,7 +123,7 @@ def test_build_prices_prefers_lseg_then_validated_fallback(tmp_path):
 
 
 def test_build_prices_drops_fallback_without_coverage(tmp_path):
-    registry = pd.DataFrame(
+    assets = pd.DataFrame(
         {
             "ric": ["B.N"],
             "ticker": ["B"],
@@ -131,10 +131,10 @@ def test_build_prices_drops_fallback_without_coverage(tmp_path):
             "last_quarter_end": pd.to_datetime(["2020-06-30"]),
         }
     )
-    store.write_parquet(registry, tmp_path / "companies.parquet")
+    store.write_parquet(assets, tmp_path / "assets.parquet")
     store.write_parquet(_cache_frame("B", ["2020-01-02"]), tmp_path / "yahoo" / "B.parquet")
     cfg = {
-        "universe": {"companies_out": tmp_path / "companies.parquet"},
+        "universe": {"assets_out": tmp_path / "assets.parquet"},
         "lseg": {"prices_out": tmp_path / "lseg"},
         "yahoo": {
             "prices_out": tmp_path / "yahoo",

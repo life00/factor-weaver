@@ -48,8 +48,8 @@ def _try_lseg(
 
 
 def _registry(cfg: dict[str, Any]) -> pd.DataFrame:
-    """Company registry written by the universe build step."""
-    path = Path(cfg["universe"]["companies_out"])
+    """Asset registry written by the universe build step."""
+    path = Path(cfg["universe"]["assets_out"])
     if not path.exists():
         raise FileNotFoundError(f"run the universe step first; missing: {path}")
     return pd.read_parquet(path)
@@ -62,17 +62,17 @@ def _is_refresh(cfg: dict[str, Any]) -> bool:
 def fetch_lseg_prices(cfg: dict[str, Any]) -> None:
     """Cache daily OHLCV for every registry RIC from LSEG (ric_fallbacks applied).
 
-    Reads: <universe.companies_out>
+    Reads: <universe.assets_out>
     Writes: per-RIC cache under <lseg.prices_out>
     """
-    companies = _registry(cfg)
+    assets = _registry(cfg)
     cache_dir = Path(cfg["lseg"]["prices_out"])
     start, end = cfg["universe"]["start"], cfg["universe"]["end"]
     refresh = _is_refresh(cfg)
 
     pending: list[tuple[str, Path]] = []
     cached = 0
-    for row in companies.to_dict("records"):
+    for row in assets.to_dict("records"):
         ric = str(row["ric"])
         path = store.cache_path(cache_dir, ric, url_quote=True)
         if path.exists() and not refresh:
@@ -106,11 +106,11 @@ def fetch_lseg_prices(cfg: dict[str, Any]) -> None:
         cached,
         fetched,
         len(failures),
-        len(companies),
+        len(assets),
     )
     for ric, err in failures:
         log.warning("  %s: %s", ric, err)
-    if cached + fetched == 0 and len(companies):
+    if cached + fetched == 0 and len(assets):
         raise RuntimeError(f"no LSEG price data fetched; failures: {failures}")
 
 
@@ -121,13 +121,13 @@ def fetch_yahoo_prices(cfg: dict[str, Any]) -> None:
     fetched under their Yahoo symbol (validated against the membership window by
     the build step). Configured `extra_symbols` are always fetched.
 
-    Reads: <universe.companies_out>
+    Reads: <universe.assets_out>
     Writes: per-symbol cache under <yahoo.prices_out>
     """
-    companies = _registry(cfg)
+    assets = _registry(cfg)
     lseg_dir = Path(cfg["lseg"]["prices_out"])
     fallback = []
-    for row in companies.to_dict("records"):
+    for row in assets.to_dict("records"):
         ric = str(row["ric"])
         if store.cache_path(lseg_dir, ric, url_quote=True).exists():
             continue
