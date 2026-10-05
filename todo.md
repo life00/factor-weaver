@@ -15,8 +15,10 @@
   - [x] refactor cli workflow logic to be more consistent (fetch/build split, manifest + caching)
   - [x] standardize logging across the whole project
 - docs
-  - [ ] properly redo documentation in markdown with mermaid charts
+  - [x] properly redo documentation in markdown with mermaid charts
 - models + eval
+  - [ ] specify a common objective function: maximize sharpe
   - [ ] shared engine + simple (1/N, index buy-and-hold) + mean_variance + optimize + workflow/MLflow + tests
   - [ ] ml_forecast (GKX GBRT) + black_litterman (Kolm et al. BLB)
   - [ ] models/rl/ env, model, ppo, policy adapter
+  - [ ] define evaluation with a proper statistical test
