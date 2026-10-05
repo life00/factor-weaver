@@ -44,16 +44,16 @@ tests/                # pytest checks (universe/prices tests synthetic)
 
 ## Key files
 
-| File                             | Purpose                                                                   |
-| -------------------------------- | ------------------------------------------------------------------------- |
-| `README.md`                      | User-facing overview, status, quickstart                                  |
-| `PLAN.md`                        | Benchmark + evaluation implementation plan: models, engine, phases        |
-| `docs/architecture.md`           | Module architecture, data pipeline, runtime flow (mermaid diagrams)       |
-| `docs/methodology.md`            | Environment setup, model architecture, evaluation plan                    |
-| `docs/models.md`                 | Per-model docs: replication targets, methods, configs, engine equivalence |
-| `docs/data.md`                   | Variables, sources (LSEG, Yahoo, MarketPsych)                             |
-| `docs/literature.md`             | 36 annotated references organized by research point with inline citations |
-| `todo.md`                        | Current pending items                                                     |
+| File                   | Purpose                                                                   |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `README.md`            | User-facing overview, status, quickstart                                  |
+| `PLAN.md`              | Benchmark + evaluation implementation plan: models, engine, phases        |
+| `docs/architecture.md` | Module architecture, data pipeline, runtime flow (mermaid diagrams)       |
+| `docs/methodology.md`  | Environment setup, model architecture, evaluation plan                    |
+| `docs/models.md`       | Per-model docs: replication targets, methods, configs, engine equivalence |
+| `docs/data.md`         | Variables, sources (LSEG, Yahoo, MarketPsych)                             |
+| `docs/literature.md`   | 36 annotated references organized by research point with inline citations |
+| `todo.md`              | Current pending items                                                     |
 
 ## Dependencies
 
@@ -71,6 +71,17 @@ tests/                # pytest checks (universe/prices tests synthetic)
 - Diagrams live inline as mermaid in `docs/`; keep the minimal nested-bullet style of existing docs.
 - The thesis is written in LaTeX in a separate directory (not here).
 - Ponytail mode active — prefer stdlib, fewest files, shortest working diff. No unrequested abstractions.
+
+## Research references
+
+Papers live in `papers/`. Start from `papers/INDEX.md`, then read
+`papers/notes/<slug>.md`, and grep `papers/md/` for details. Open
+`papers/pdf/` only when a figure or table matters. Cite papers in code
+comments, docs and commit messages as `[<slug>]`. Modify
+`papers/pdf/` or `papers/md/` only when requested by the user.
+Use docling with --table-mode fast when converting from pdf to markdown.
+When you learn something new about how a paper applies to this project,
+update its note's "Relevance" section.
 
 ## Git
 
