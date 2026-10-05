@@ -13,7 +13,7 @@ from rich_argparse import RichHelpFormatter
 
 from factor_weaver import config
 from factor_weaver.output import err, out
-from factor_weaver.workflows import data, evaluate, train
+from factor_weaver.workflows import data, evaluate, report, train
 
 
 class _Parser(argparse.ArgumentParser):
@@ -37,7 +37,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="debug logging")
     sub = parser.add_subparsers(required=True)
-    for workflow in (data, train, evaluate):
+    for workflow in (data, train, evaluate, report):
         workflow.add_arguments(sub)
     for workflow_parser in sub.choices.values():
         workflow_parser.add_argument(

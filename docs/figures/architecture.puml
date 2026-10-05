@@ -30,8 +30,9 @@ package "factor_weaver" {
 
   package "workflows" as workflows {
     rectangle data_wf as "data\nfetch / build"
-    rectangle train as "train\nRL loop"
+    rectangle train as "train\nmodel loop"
     rectangle evaluate as "evaluate\nbacktest"
+    rectangle report as "report\nMLflow table"
   }
 
   package "data" as data_pkg {
@@ -75,6 +76,7 @@ cli --> config
 cli --> data_wf
 cli --> train
 cli --> evaluate
+cli --> report
 
 data_wf --> pipeline
 pipeline --> fetch_pkg
@@ -96,9 +98,9 @@ bl --> optimize
 
 note bottom of workflows
   `factor-weaver data [fetch|build] [steps ...]`
-  runs the manifest in order; fetch steps
-  write data/raw/, build steps write
-  data/interim|processed/.
+  `factor-weaver train [MODEL]`
+  `factor-weaver eval [MODEL ...]`
+  `factor-weaver report`
 end note
 
 note right of data_pkg

@@ -7,4 +7,4 @@ window: # evaluation window — from the train/test split once defined
   end: null
 mlflow:
   experiment: factor-weaver-eval
-  tracking_uri: experiments/mlruns
+  tracking_uri: sqlite:///experiments/mlflow.db

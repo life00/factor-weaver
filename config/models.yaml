@@ -18,3 +18,4 @@ black_litterman: # Kolm & Ritter (2021) BLB; derivation Kolm & Ritter (2017)
   weight_cap: 0.10
 rl:
   rebalance: D # native daily cadence
+  checkpoint: null # trained policy path; eval rl default (--checkpoint overrides)

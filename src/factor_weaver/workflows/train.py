@@ -1,16 +1,21 @@
-"""Train the RL model, models/rl (not yet implemented; PLAN.md Phase 3)."""
+"""Training workflow: `factor-weaver train [MODEL]`."""
 
-import logging
+import argparse
 from typing import Any
 
-log = logging.getLogger(__name__)
-
-
-def run(cfg: dict[str, Any], args: Any) -> None:
-    log.warning("RL training not yet implemented")
+from factor_weaver import models
 
 
 def add_arguments(sub: Any) -> None:
-    sub.add_parser("rl", help="Train the RL model (models/rl)").set_defaults(
-        func=run, configs=("data", "models")
-    )
+    parser = sub.add_parser("train", help="Train a registered model (default: rl)")
+    parser.add_argument("model", nargs="?", default="rl", metavar="MODEL", help="model to train")
+    parser.add_argument("--resume", metavar="PATH", help="resume from a checkpoint")
+    parser.add_argument("--seed", type=int, help="override the configured seed")
+    parser.set_defaults(func=run, configs=("data", "eval", "models"))
+
+
+def run(cfg: dict[str, Any], args: argparse.Namespace) -> None:
+    if args.model not in models.TRAINERS:
+        available = ", ".join(models.TRAINERS)
+        raise SystemExit(f"'{args.model}' is not trainable; available: {available}")
+    models.TRAINERS[args.model](cfg, args)

@@ -49,7 +49,7 @@ Equivalence guarantees — the central design decision:
 ```
 src/factor_weaver/
 ├── cli.py, config.py
-├── workflows/              # data, train, evaluate
+├── workflows/              # data, train, evaluate, report
 ├── data/                   # MODULE 1: raw sources -> panel file
 │   ├── pipeline.py         # step manifest + dependency-aware runner
 │   ├── fetch/              # external I/O -> data/raw/
@@ -157,14 +157,19 @@ hand-rolled PPO (per `docs/methodology.md`); `policy.py` exposes the trained
 policy through the same weight-provider interface, so the engine treats it
 identically to benchmarks.
 
-## 6. Workflow & tracking — `workflows/evaluate.py`
+## 6. Workflow & tracking — `workflows/{train,evaluate,report}.py`
 
-`factor-weaver eval [--models ...] [--start --end]` — loads configs, panel,
-prices, universe, rf; runs each selected model through the shared engine.
+`factor-weaver eval [MODEL ...] [--start --end] [--checkpoint PATH]` — loads
+configs, panel, prices, universe, rf; runs each selected registered model
+(default all) through the shared engine. Bare `eval` skips `rl` with a warning
+when no checkpoint is configured. `factor-weaver train [MODEL]` (default `rl`)
+trains a `models.TRAINERS` entry and logs its checkpoint artifact;
+`factor-weaver report [--experiment NAME] [--out PATH]` queries the shared
+experiment into the comparison table.
 MLflow: one run per model/window — params (model, fees, window, key
-hyperparams), metrics (engine metrics), artifacts (equity curve, weights
-history, config snapshot) — under a shared experiment; later RL runs join the
-same experiment, so the final comparison table is one query.
+hyperparams), tags (`kind=train|eval`, `model`), metrics (engine metrics),
+artifacts (equity curve, weights history, config snapshot, checkpoint) — under
+a shared experiment, so the final comparison table is one query.
 
 ## 7. Dependencies
 

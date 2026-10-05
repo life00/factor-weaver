@@ -24,6 +24,9 @@ uv run factor-weaver data fetch [steps]    # raw data acquisition only (cached)
 uv run factor-weaver data build [steps]    # derived datasets only
 uv run factor-weaver data --list           # step/output status
 uv run factor-weaver data fetch --refresh  # refetch cached raw data
+uv run factor-weaver train rl              # train the RL policy (stub, Phase 3)
+uv run factor-weaver eval [models ...]     # backtest models via the shared engine (stub)
+uv run factor-weaver report                # compare tracked eval runs (stub)
 ```
 
 Run from the repository root so the relative `config/` and `data/` paths resolve.
@@ -44,7 +47,7 @@ Fetch steps are existence-cached (whole outputs and per-RIC/per-symbol price cac
 ├── src/factor_weaver/
 │   ├── cli.py
 │   ├── config.py
-│   ├── workflows/          # data, train, evaluate
+│   ├── workflows/          # data, train, evaluate, report
 │   ├── data/
 │   │   ├── pipeline.py     # ordered Step manifest + runner
 │   │   ├── store.py

@@ -14,7 +14,7 @@ Tentative stack (under consideration): Python, PyTorch, Gymnasium (not FinRL), h
 src/factor_weaver/
 ├── cli.py            # argparse dispatcher, logging setup (entry point)
 ├── config.py         # YAML config loading (config/*.yaml merged by workflow)
-├── workflows/        # CLI glue: data, train, evaluate
+├── workflows/        # CLI glue: data, train, evaluate, report
 ├── data/             # MODULE 1
 │   ├── pipeline.py   #   step manifest (Step: phase, ins, outs) + dependency-aware runner
 │   ├── store.py      #   shared parquet read/write + cache paths
@@ -38,6 +38,9 @@ PLAN.md               # benchmark + evaluation implementation plan (phases)
 - `cli.py` dispatches to workflow modules exposing `add_arguments(subparsers)` and `run(cfg, args)`; each subparser registers `run` and its `configs` tuple via `set_defaults(...)`.
 - `data/pipeline.py` holds the ordered `STEPS` manifest. `Step(name, run, phase, ins, outs)` declares config-key inputs/outputs; the runner pulls producers of missing inputs and logs each addition. Phases: `fetch` writes only `data/raw/`; `build` writes only `data/interim|processed`.
 - `factor-weaver data [fetch|build] [steps ...]`: runs all steps, one phase, or a subset (always manifest order). `--list` shows step/output status; `--refresh` refetches cached data; `-v` enables debug logging.
+- `factor-weaver train [MODEL]` (default `rl`): dispatches through `models.TRAINERS`; `--resume` continues from a checkpoint (stub, Phase 3).
+- `factor-weaver eval [MODEL ...]`: runs each selected `models.REGISTRY` provider (default all) through the shared engine; `--start/--end` override the eval window; `--checkpoint` overrides the RL checkpoint. Bare `eval` skips `rl` with a warning when no checkpoint is configured (stub, Phase 1).
+- `factor-weaver report [--experiment NAME] [--out PATH]`: queries the shared MLflow experiment (`tags.kind = eval`) into a comparison table or CSV.
 - Fetch steps are existence-cached: whole-step skip when outputs exist, per-RIC/per-symbol skip inside the price steps; a fully cached run needs no credentials or network.
 
 ## Key files
