@@ -1,12 +1,27 @@
 # Models
 
-- all weight-producing models live in `src/factor_weaver/models/`
+- all weight-producing models live in `src/factor_weaver/models/`; implementations and the engine are stubs today
 - interface
   - pure function: `(t, universe members, panel history ≤ t) → {ric: weight}`
   - Σweights = 1, long-only; cash is engine-only (forced liquidation)
   - registered by CLI name, evaluated through ONE shared engine (`eval/backtest.py`)
   - identical costs, universe transitions, delistings, accounting across models, including the RL policy (`models/rl/policy.py`)
-- implementation plan + phases: `PLAN.md`
+
+```mermaid
+flowchart LR
+  subgraph providers["weight providers — Σw = 1, long-only"]
+    simple["simple<br/>1/N · index buy-and-hold"]
+    opt["optimize.tangency<br/>shared max-Sharpe"]
+    mv["mean_variance"] --> opt
+    ml["ml_forecast"] --> opt
+    bl["black_litterman"] --> opt
+    rl["rl/policy<br/>trained PPO"]
+  end
+  providers --> engine["eval/backtest.py<br/>costs · dynamic universe<br/>delistings · ^IRX cash"]
+  engine --> results["equity curve · weights · metrics"]
+  results --> mlflow[("MLflow run")]
+  mlflow --> report["factor-weaver report"]
+```
 
 ## Shared engine (`eval/backtest.py`)
 

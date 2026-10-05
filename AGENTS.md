@@ -1,6 +1,6 @@
 # Factor Weaver — Agent Guide
 
-**Status: data pipeline implemented** (LSEG retrieval, top-50 universe, prices with Yahoo fallback). Models/eval modules stubbed per `PLAN.md` (benchmark + evaluation framework, Phases 1–3 not yet implemented).
+**Status: data pipeline implemented through prices** (LSEG retrieval, top-50 universe, LSEG prices with Yahoo fallback + extra series); `technicals`, `panel`, `split` are stubs. Models, shared engine, and `train`/`eval` workflows are stubbed per `PLAN.md`.
 
 ## Project
 
@@ -14,6 +14,7 @@ Tentative stack (under consideration): Python, PyTorch, Gymnasium (not FinRL), h
 src/factor_weaver/
 ├── cli.py            # argparse dispatcher, logging setup (entry point)
 ├── config.py         # YAML config loading (config/*.yaml merged by workflow)
+├── output.py         # shared rich consoles (out, err)
 ├── workflows/        # CLI glue: data, train, evaluate, report
 ├── data/             # MODULE 1
 │   ├── pipeline.py   #   step manifest (Step: phase, ins, outs) + dependency-aware runner
@@ -25,12 +26,10 @@ src/factor_weaver/
 
 config/               # YAML configs (data paths, engine params, model params)
 data/                 # tracked symlinks → external dir (raw, interim, processed)
-docs/                 # planning docs + figures
-  figures/            #   PlantUML diagrams (data flow, architecture)
+docs/                 # documentation (architecture, data, methodology, models, literature)
 notebooks/            # exploratory quarto notebooks
 experiments/          # run outputs (logs, checkpoints, results, mlruns)
 tests/                # pytest checks (universe/prices tests synthetic)
-PLAN.md               # benchmark + evaluation implementation plan (phases)
 ```
 
 ## Workflows
@@ -38,8 +37,8 @@ PLAN.md               # benchmark + evaluation implementation plan (phases)
 - `cli.py` dispatches to workflow modules exposing `add_arguments(subparsers)` and `run(cfg, args)`; each subparser registers `run` and its `configs` tuple via `set_defaults(...)`.
 - `data/pipeline.py` holds the ordered `STEPS` manifest. `Step(name, run, phase, ins, outs)` declares config-key inputs/outputs; the runner pulls producers of missing inputs and logs each addition. Phases: `fetch` writes only `data/raw/`; `build` writes only `data/interim|processed`.
 - `factor-weaver data [fetch|build] [steps ...]`: runs all steps, one phase, or a subset (always manifest order). `--list` shows step/output status; `--refresh` refetches cached data; `-v` enables debug logging.
-- `factor-weaver train [MODEL]` (default `rl`): dispatches through `models.TRAINERS`; `--resume` continues from a checkpoint (stub, Phase 3).
-- `factor-weaver eval [MODEL ...]`: runs each selected `models.REGISTRY` provider (default all) through the shared engine; `--start/--end` override the eval window; `--checkpoint` overrides the RL checkpoint. Bare `eval` skips `rl` with a warning when no checkpoint is configured (stub, Phase 1).
+- `factor-weaver train [MODEL]` (default `rl`): dispatches through `models.TRAINERS`; `--resume` continues from a checkpoint (stub).
+- `factor-weaver eval [MODEL ...]`: runs each selected `models.REGISTRY` provider (default all) through the shared engine; `--start/--end` override the eval window; `--checkpoint` overrides the RL checkpoint. Bare `eval` skips `rl` with a warning when no checkpoint is configured (stub).
 - `factor-weaver report [--experiment NAME] [--out PATH]`: queries the shared MLflow experiment (`tags.kind = eval`) into a comparison table or CSV.
 - Fetch steps are existence-cached: whole-step skip when outputs exist, per-RIC/per-symbol skip inside the price steps; a fully cached run needs no credentials or network.
 
@@ -47,13 +46,13 @@ PLAN.md               # benchmark + evaluation implementation plan (phases)
 
 | File                             | Purpose                                                                   |
 | -------------------------------- | ------------------------------------------------------------------------- |
+| `README.md`                      | User-facing overview, status, quickstart                                  |
 | `PLAN.md`                        | Benchmark + evaluation implementation plan: models, engine, phases        |
+| `docs/architecture.md`           | Module architecture, data pipeline, runtime flow (mermaid diagrams)       |
 | `docs/methodology.md`            | Environment setup, model architecture, evaluation plan                    |
 | `docs/models.md`                 | Per-model docs: replication targets, methods, configs, engine equivalence |
 | `docs/data.md`                   | Variables, sources (LSEG, Yahoo, MarketPsych)                             |
 | `docs/literature.md`             | 36 annotated references organized by research point with inline citations |
-| `docs/figures/data_flow.puml`    | Data flow: sources → processed tensors (with rendered PNG)                |
-| `docs/figures/architecture.puml` | Module architecture: subsystems + workflows (with rendered PNG)           |
 | `todo.md`                        | Current pending items                                                     |
 
 ## Dependencies
@@ -62,13 +61,14 @@ PLAN.md               # benchmark + evaluation implementation plan (phases)
 - Price data: LSEG data API daily OHLCV (per-RIC cache in `data/raw/lseg/prices/`); Yahoo Finance (`yfinance`) is the fallback for RICs LSEG cannot serve and the source for extra index/ETF series (per-symbol cache in `data/raw/yahoo/prices/`).
 - Fundamentals: planned from LSEG (not yet implemented; the `panel` build step is the integration point).
 - Behavioral: planned from MarketPsych (not yet implemented).
-- Benchmarks/evaluation (per `PLAN.md`): scikit-learn (GBRT, Ledoit–Wolf), PyPortfolioOpt (tangency optimizer), mlflow (tracking) — declared in `pyproject.toml`; risk-free via `^IRX` (yield series, not a price).
+- Benchmarks/evaluation (per `docs/models.md`): scikit-learn (GBRT, Ledoit–Wolf), PyPortfolioOpt (tangency optimizer), mlflow (tracking) — declared in `pyproject.toml`; risk-free via `^IRX` (yield series, not a price).
 - Dev: `uv sync` installs the project plus the `dev` dependency group into `.venv`; run checks with `uv run pytest tests/`, `ruff check .`, `pyright src`.
 
 ## Conventions
 
 - When adding code, start with `pyproject.toml`, a dependency manifest, and a linter config before writing implementation.
 - Adding a data source/step: create the module under `data/fetch/` or `data/build/`, add one `Step` entry to `STEPS` in `data/pipeline.py`, add its output keys to `config/data.yaml`.
+- Diagrams live inline as mermaid in `docs/`; keep the minimal nested-bullet style of existing docs.
 - The thesis is written in LaTeX in a separate directory (not here).
 - Ponytail mode active — prefer stdlib, fewest files, shortest working diff. No unrequested abstractions.
 

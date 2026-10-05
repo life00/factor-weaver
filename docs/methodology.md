@@ -57,7 +57,7 @@
   - financial
     - return, sharpe, sortino
     - train and test periods
-- benchmarks (see `docs/models.md` and `PLAN.md`)
+- benchmarks (see `docs/models.md`)
   - all models evaluated through one shared backtest engine: identical costs, dynamic universe, and accounting
   - standard: mean-variance (max-Sharpe tangency), 1/N, S&P500 buy and hold
   - factor-based: ml_forecast (Gu, Kelly & Xiu, 2020 GBRT + Ma et al., 2021 mean-variance), black_litterman (Kolm & Ritter, 2021)

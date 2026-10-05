@@ -19,19 +19,40 @@
   - forward-fill fundamentals from their LSEG report date with per-group staleness counter
   - time-decay for behavioral features
 
+## Flow
+
+```mermaid
+flowchart LR
+  lseg[("LSEG data API")] --> fetch_ref["fetch: constituents<br/>joiners/leavers · mapping · market cap"]
+  lseg --> fetch_px["fetch: daily OHLCV per RIC"]
+  yahoo[("Yahoo Finance")] --> fetch_yf["fetch: fallback RICs · extra symbols"]
+  mpsych[("MarketPsych (planned)")] -.-> panel
+  fetch_ref --> raw[("data/raw/")]
+  fetch_px --> raw
+  fetch_yf --> raw
+  raw --> univ["build: universe<br/>top-50 S&P500 per quarter"]
+  raw --> bprices["build: prices<br/>canonical OHLCV + extra series"]
+  bprices --> tech["build: technicals (stub)"]
+  tech --> panel["build: panel (stub)"]
+  univ --> panel
+  panel --> split["build: split (stub)"]
+```
+
+Steps are existence-cached and run in manifest order; `factor-weaver data --list` shows status, `--refresh` refetches raw data (see `docs/architecture.md`).
+
 ## Variables
 
 - for each stock
   - current passive weight
   - price
     - daily OHLCV
-  - technical (can be excluded?)
+  - technical (stub; computed from prices)
     - moving averages
     - volume indicators
-  - fundamental
+  - fundamental (planned; LSEG)
     - financial ratios
     - market info
-  - behavioral
+  - behavioral (planned; MarketPsych)
     - attention
       - media coverage
       - Google search intensity
@@ -51,11 +72,11 @@
 - price
   - LSEG data API — daily OHLCV (RTS-adjusted), primary source; per-RIC cache in `data/raw/lseg/prices/`
   - stale RICs retargeted via `lseg.ric_fallbacks` (FSR.N^B01 → USB.N, KHC.OQ → KHC.N), rows relabelled
-  - <https://finance.yahoo.com/> via `yfinance` — fallback for RICs without LSEG content (validated against the universe membership window) plus the configured `extra_symbols` (index/indicator series) into `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
+  - <https://finance.yahoo.com/> via `yfinance` — fallback for RICs without LSEG content (validated against the universe membership window) and source for the configured `extra_symbols` (`^GSPC`, `^VIX`, `^IRX`); fallback rows land in `prices.parquet`, extras in `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
 - fundamental
   - LSEG data API — planned, not yet implemented (`build/panel.py` is the integration point)
 - technical
-  - computed from prices (moving averages, volume indicators)
+  - computed from prices (moving averages, volume indicators); `build/technicals.py` is a stub
 - behavioral
   - <https://www.marketpsych.com/> — planned, not yet implemented
 
