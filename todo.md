@@ -8,7 +8,8 @@
   - [x] build a top 50 universe
   - [x] obtain daily OHLCV data from LSEG
   - [x] decide on how to store extra assets in the universe (extra_prices.parquet)
-  - [ ] behavioral data...
+  - [x] behavioral data pipeline for marketpsych
+  - [ ] retrieve and process behavioral data
   - [ ] select and fetch fundamental variables
   - [ ] complete panel data file (date, ric, *features)
 - workflow

@@ -23,6 +23,16 @@ universe:
   universe_out: data/interim/universe.parquet
   assets_out: data/interim/assets.parquet
 
+marketpsych:
+  start: "1998-01-01" # LMA company history begins January 1998
+  end: "2026-01-01" # exclusive, matches universe.end
+  asset_class: equ # CMPNY: all companies; regional classes miss non-Americas domiciles
+  frequency: dai # daily, 24h window stamped 15:30 ET
+  datatypes: ["News_Social"] # combined news + social content
+  datacols: ["buzz", "sentiment"] # attention, net sentiment
+  raw_out: data/raw/marketpsych
+  out: data/interim/behavioral.parquet
+
 prices:
   out: data/interim/prices.parquet
 

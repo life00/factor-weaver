@@ -26,13 +26,16 @@ flowchart LR
   lseg[("LSEG data API")] --> fetch_ref["fetch: constituents<br/>joiners/leavers · mapping · market cap"]
   lseg --> fetch_px["fetch: daily OHLCV per RIC"]
   yahoo[("Yahoo Finance")] --> fetch_yf["fetch: fallback RICs · extra symbols"]
-  mpsych[("MarketPsych (planned)")] -.-> panel
+  mpsych[("MarketPsych pull API")] --> fetch_mp["fetch: behavioral<br/>monthly buzz/sentiment slices"]
   fetch_ref --> raw[("data/raw/")]
   fetch_px --> raw
   fetch_yf --> raw
+  fetch_mp --> raw
   raw --> univ["build: universe<br/>top-50 S&P500 per quarter"]
   raw --> bprices["build: prices<br/>canonical OHLCV + extra series"]
+  raw --> bbeh["build: behavioral<br/>sparse PermID → RIC rows"]
   bprices --> tech["build: technicals (stub)"]
+  bbeh -.-> panel
   tech --> panel["build: panel (stub)"]
   univ --> panel
   panel --> split["build: split (stub)"]
@@ -52,12 +55,9 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
   - fundamental (planned; LSEG)
     - financial ratios
     - market info
-  - behavioral (planned; MarketPsych)
-    - attention
-      - media coverage
-      - Google search intensity
-    - sentiment
-      - positive/negative sentiment based on posts or news
+  - behavioral (LSEG MarketPsych)
+    - attention — `buzz` (media coverage volume, news + social blended)
+    - sentiment — `sentiment` (net polarity)
 - extra assets
   - risk-free - `^IRX` (T-bill annualized yield, not a price)
   - S&P500 stock index - `^GSPC`
@@ -78,7 +78,8 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
 - technical
   - computed from prices (moving averages, volume indicators); `build/technicals.py` is a stub
 - behavioral
-  - <https://www.marketpsych.com/> — planned, not yet implemented
+  - LSEG MarketPsych Analytics pull API (`dataapi.marketpsych.com/rma/v4/data/equ/dai`) — Companies (`CMPNY`) class, combined `News_Social` content set, daily 24h window stamped 15:30 ET; `buzz` (attention) and `sentiment` (net polarity) keyed by company PermID; history from 1998 (English-only text until Feb 2020); rows are sparse — a day with no media coverage has no row, and zero-filling is the panel's decision; per-month cache in `data/raw/marketpsych/` (`YYYY-MM.parquet`), existence-cached and paced at 60 requests/min
+  - `build/behavioral.py` broadcasts each PermID series to every RIC sharing it (GOOG.OQ/GOOGL.OQ, CMCSA.OQ/CMCSK.OQ^L15, USB.N/FSR.N^B01) into `data/interim/behavioral.parquet` and warns for universe RICs with no rows; time-decay and panel integration are still pending
 
 ## Issues
 
@@ -103,3 +104,22 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
 - **Existence-based caches**: reference files and per-RIC/per-symbol price caches are
   skipped when present; use `factor-weaver data fetch --refresh` (optionally per step,
   e.g. `data fetch lseg-constituents --refresh`) instead of deleting files
+
+### Behavioral
+
+- **`MARKETPSYCH_API_KEY` has no Companies entitlement (2026-10-11)**: the pull
+  (`/rma/v4/data/equ/dai`) and bulk (`/rma/v4/files/equ/dai`) routes both answer
+  `401 {"error":"Insufficient access rights. No access to Companies in RMA dataset"}`,
+  and the regional class is denied too (`equamer` → `No access to Companies (Americas)`);
+  the denial is class-scoped, not datatype-scoped (`News` fails like `News_Social`), and the
+  reference route is gated as well (`/rma/v4/equ/assets` → `No access to EQU in RMA dataset`),
+  so universe coverage cannot be enumerated either.
+  LSEG must grant the Companies dataset (all regions — regional classes are licensed
+  separately) before `data fetch marketpsych` can run at all
+- **Per-month caches, clipped windows**: a month cache is written for the configured
+  `[start, end)` window, so a run with mid-month bounds caches only those days while the
+  month file marks the whole month as done; the shipped bounds (`1998-01-01` → `2026-01-01`)
+  are month-aligned, so this only affects ad-hoc partial windows
+- **Sparse rows are intentional**: companies only have rows on non-zero-buzz days, so
+  `behavioral.parquet` has no row for a day without media coverage; 1994-1997 is empty by
+  construction (history starts 1998-01)
