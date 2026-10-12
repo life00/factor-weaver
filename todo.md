@@ -12,6 +12,7 @@
   - [ ] retrieve and process behavioral data
   - [ ] select and fetch fundamental variables
   - [ ] complete panel data file (date, ric, *features)
+  - [ ] perform data check and cleanup (if necessary): missing values, errors (outliers)
 - workflow
   - [x] refactor cli workflow logic to be more consistent (fetch/build split, manifest + caching)
   - [x] standardize logging across the whole project
