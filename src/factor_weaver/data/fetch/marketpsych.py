@@ -10,6 +10,7 @@ change needs a fetch run with --refresh; the build step broadcasts the PermID-ke
 series to every RIC sharing it.
 """
 
+import http.client
 import json
 import logging
 import os
@@ -21,7 +22,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -60,46 +61,82 @@ def _throttle() -> None:
     _last_request = time.monotonic()
 
 
-def _request(url: str) -> Any:
-    """GET a data URL, retrying throttles and 5xx; the URL carries the key, never log it."""
+def _open(url: str, offset: int = 0) -> Any:
+    """One GET attempt; offset > 0 asks for the rest of a partially transferred payload."""
     _throttle()
+    headers = {"Range": f"bytes={offset}-"} if offset else {}
+    request = urllib.request.Request(url, headers=headers)
+    return urllib.request.urlopen(request, timeout=_TIMEOUT)
+
+
+def _retry(op: Callable[[], Any], what: str) -> Any:
+    """Run one request attempt up to _MAX_ATTEMPTS; retry throttles, 5xx and network faults.
+
+    The URL carries the key (listing) or a pre-signed token (download) — never log it.
+    """
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         try:
-            return urllib.request.urlopen(url, timeout=_TIMEOUT)
+            return op()
         except urllib.error.HTTPError as e:
-            body = e.read().decode(errors="replace")
+            try:
+                body = e.read().decode(errors="replace")
+            except OSError:  # the error response itself was cut off
+                body = ""
             retry_after = (e.headers.get("Retry-After") if e.headers else None) or 0
             if not (e.code == 429 or 500 <= e.code < 600) or attempt == _MAX_ATTEMPTS:
-                raise RuntimeError(f"marketpsych api error {e.code}: {body[:300]}") from None
+                raise RuntimeError(f"marketpsych: {what}: http {e.code}: {body[:300]}") from None
             wait = max(float(retry_after), _BACKOFF_BASE**attempt + random.uniform(0, 0.5))
             log.warning(
-                "marketpsych: http %d, retry %d/%d in %.1fs", e.code, attempt, _MAX_ATTEMPTS, wait
+                "marketpsych: %s: http %d, retry %d/%d in %.1fs",
+                what, e.code, attempt, _MAX_ATTEMPTS, wait,
             )
-        except urllib.error.URLError as e:  # timeouts, resets, DNS
+        except (urllib.error.URLError, http.client.HTTPException, OSError) as e:
+            # resets, timeouts, DNS, truncated bodies — a half-read response is no file
+            reason = getattr(e, "reason", e)
             if attempt == _MAX_ATTEMPTS:
                 raise RuntimeError(
-                    f"marketpsych request failed after {_MAX_ATTEMPTS} attempts: {e.reason}"
+                    f"marketpsych: {what}: failed after {_MAX_ATTEMPTS} attempts: {reason}"
                 ) from None
             wait = _BACKOFF_BASE**attempt + random.uniform(0, 0.5)
             log.warning(
-                "marketpsych: %s, retry %d/%d in %.1fs", e.reason, attempt, _MAX_ATTEMPTS, wait
+                "marketpsych: %s: %s, retry %d/%d in %.1fs",
+                what,
+                reason,
+                attempt,
+                _MAX_ATTEMPTS,
+                wait,
             )
         time.sleep(wait)
-    raise RuntimeError(f"marketpsych request failed after {_MAX_ATTEMPTS} attempts")
+    raise RuntimeError(f"marketpsych: {what}: failed after {_MAX_ATTEMPTS} attempts")
 
 
 def list_files(asset_class: str, frequency: str, start: str, end: str) -> list[dict[str, Any]]:
     """List the payload files covering [start, end); downloads are pre-signed links."""
     query = urllib.parse.urlencode({"apikey": api_key(), "start_date": start, "end_date": end})
-    return json.loads(_request(f"{_BASE}/{asset_class}/{frequency}?{query}").read())["data"]
+    url = f"{_BASE}/{asset_class}/{frequency}?{query}"
+
+    def attempt() -> list[dict[str, Any]]:
+        with _open(url) as response:
+            return json.loads(response.read())["data"]
+
+    return _retry(attempt, f"{asset_class}/{frequency} listing")
 
 
 def download(link: str, path: Path) -> None:
-    """Stream one payload to path via a temp file, so an interrupted transfer is no cache."""
+    """Stream one payload to path; a reset transfer resumes, the file lands atomically."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
-    with _request(link) as response, tmp.open("wb") as handle:
-        shutil.copyfileobj(response, handle)
+    tmp.unlink(missing_ok=True)  # scratch from an aborted run, not a resume point
+
+    def attempt() -> None:
+        offset = tmp.stat().st_size if tmp.exists() else 0
+        with _open(link, offset) as response:
+            # the pre-signed link supports ranges; a 200 means it ignored ours → start over
+            mode = "ab" if offset and response.status == 206 else "wb"
+            with tmp.open(mode) as handle:
+                shutil.copyfileobj(response, handle)
+
+    _retry(attempt, path.name)
     tmp.replace(path)
 
 

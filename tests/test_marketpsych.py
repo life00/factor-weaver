@@ -53,6 +53,28 @@ def _row(key, permid, datatype, buzz, sentiment, timestamp="1998-02-03T20:30:00+
     return [key, permid, "AAPL.O", timestamp, datatype, "4.5", 1, buzz, sentiment, 0.1]
 
 
+class _Response(io.BytesIO):
+    """urlopen stand-in: body bytes plus the HTTP status `download` inspects."""
+
+    def __init__(self, blob, status=200):
+        super().__init__(blob)
+        self.status = status
+
+
+class _Reset(_Response):
+    """A response that hands over `cut` bytes and then the connection drops."""
+
+    def __init__(self, blob, cut, status=200):
+        super().__init__(blob[:cut], status)
+        self._reads = 0
+
+    def read(self, n=-1):
+        if self._reads:
+            raise ConnectionResetError(104, "Connection reset by peer")
+        self._reads += 1
+        return super().read(n)
+
+
 def _slice(path, dates, buzz, permid="5030853586"):
     pd.DataFrame(
         {
@@ -85,12 +107,12 @@ def test_list_files_builds_url_and_parses_entries(monkeypatch):
     urls: list[str] = []
     listing = _listing(_ARCHIVE, _LIVE)
 
-    def fake_request(url):
+    def fake_open(url, offset=0):
         urls.append(url)
-        return io.BytesIO(listing)
+        return _Response(listing)
 
     monkeypatch.setattr(marketpsych, "api_key", lambda: "SECRET")
-    monkeypatch.setattr(marketpsych, "_request", fake_request)
+    monkeypatch.setattr(marketpsych, "_open", fake_open)
 
     entries = marketpsych.list_files("equamer", "dai", "1998-01-01", "1998-03-01")
 
@@ -100,6 +122,23 @@ def test_list_files_builds_url_and_parses_entries(monkeypatch):
     ]
     assert [e["filename"] for e in entries] == [_ARCHIVE, _LIVE]
     assert entries[0]["size"] == 1000
+
+
+def _patch_open(monkeypatch, listing, payloads):
+    """Stub `_open`: the listing URL serves `listing`, payload links serve `payloads` by name."""
+    calls: list[str] = []
+
+    def fake_open(url, offset=0):
+        if url.startswith(marketpsych._BASE):
+            calls.append("listing")
+            return _Response(listing)
+        name = url.split("?")[0].rsplit("/", 1)[-1]
+        calls.append(name)
+        return _Response(payloads[name])
+
+    monkeypatch.setattr(marketpsych, "api_key", lambda: "SECRET")
+    monkeypatch.setattr(marketpsych, "_open", fake_open)
+    return calls
 
 
 def test_fetch_writes_slice_per_listed_file_and_skips_cached(tmp_path, monkeypatch):
@@ -118,20 +157,15 @@ def test_fetch_writes_slice_per_listed_file_and_skips_cached(tmp_path, monkeypat
             _row("c", 999, "News_Social", 2.0, 0.10, timestamp="1998-02-04T20:30:00+00:00"),
         ]
     )
-    downloads: list[str] = []
+    calls = _patch_open(
+        monkeypatch,
+        _listing(_ARCHIVE, _LIVE, cached),
+        {_ARCHIVE: _zip("payload.txt", blob), _LIVE: blob},
+    )
 
-    def fake_request(url):
-        if url.startswith(marketpsych._BASE):
-            return io.BytesIO(_listing(_ARCHIVE, _LIVE, cached))
-        name = url.split("?")[0].rsplit("/", 1)[-1]
-        downloads.append(name)
-        return io.BytesIO(_zip("payload.txt", blob) if name.endswith(".zip") else blob)
-
-    monkeypatch.setattr(marketpsych, "api_key", lambda: "SECRET")
-    monkeypatch.setattr(marketpsych, "_request", fake_request)
     marketpsych.fetch_marketpsych(_cfg(tmp_path, assets_path, raw_dir))
 
-    assert sorted(downloads) == [_ARCHIVE, _LIVE]  # the cached slice's file is not fetched
+    assert sorted(n for n in calls if n != "listing") == [_ARCHIVE, _LIVE]  # cached slice skipped
     assert (raw_dir / "files" / _ARCHIVE).exists()
     assert (raw_dir / "files" / _LIVE).exists()
     for name in (_ARCHIVE, _LIVE):
@@ -153,21 +187,13 @@ def test_fetch_refresh_reparses_without_redownloading(tmp_path, monkeypatch):
     payload = raw_dir / "files" / _LIVE
     payload.parent.mkdir(parents=True)
     payload.write_bytes(_tsv([_row("a", 4295905573, "News_Social", 3.0, 0.25)]))
-    downloads: list[str] = []
+    calls = _patch_open(monkeypatch, _listing(_LIVE), {})
 
-    def fake_request(url):
-        if url.startswith(marketpsych._BASE):
-            return io.BytesIO(_listing(_LIVE))
-        downloads.append(url)
-        return io.BytesIO(b"")
-
-    monkeypatch.setattr(marketpsych, "api_key", lambda: "SECRET")
-    monkeypatch.setattr(marketpsych, "_request", fake_request)
     cfg = _cfg(tmp_path, assets_path, raw_dir)
     cfg["_refresh"] = True
     marketpsych.fetch_marketpsych(cfg)
 
-    assert downloads == []  # the payload is kept, only its slice is rewritten
+    assert calls == ["listing"]  # the payload is kept, only its slice is rewritten
     out = pd.read_parquet(store.cache_path(raw_dir, _LIVE))
     assert out["buzz"].tolist() == [3.0]
 
@@ -179,65 +205,92 @@ def test_read_slice_rejects_unknown_columns(tmp_path):
         marketpsych.read_slice(payload, pd.Index(["1"]), {"news_social"}, ["buzz", "sentiment"])
 
 
-def test_request_raises_api_error_body_without_leaking_key(monkeypatch):
+def test_list_files_raises_api_error_body_without_leaking_key(monkeypatch):
     attempts: list[str] = []
 
-    def fake_urlopen(url, timeout=None):
-        attempts.append(url)
+    def fake_urlopen(request, timeout=None):
+        attempts.append(request.get_full_url())
         raise urllib.error.HTTPError(
-            url, 401, "Unauthorized", Message(), io.BytesIO(b'{"error":"Invalid/expired api key"}')
+            request.get_full_url(),
+            401,
+            "Unauthorized",
+            Message(),
+            io.BytesIO(b'{"error":"Invalid/expired api key"}'),
         )
 
+    monkeypatch.setattr(marketpsych, "api_key", lambda: "SECRETKEY")
     monkeypatch.setattr(marketpsych, "_last_request", 0.0)
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     with pytest.raises(RuntimeError) as excinfo:
-        marketpsych._request(
-            "https://dataapi.marketpsych.com/rma/v4/files/equamer/dai?apikey=SECRETKEY"
-        )
+        marketpsych.list_files("equamer", "dai", "1998-01-01", "1998-03-01")
     msg = str(excinfo.value)
-    assert "marketpsych api error 401" in msg
+    assert "http 401" in msg
     assert "Invalid/expired api key" in msg
     assert "SECRETKEY" not in msg
     assert len(attempts) == 1  # 4xx is a config error, not worth retrying
 
 
-def test_request_retries_429_with_retry_after_and_paces_requests(monkeypatch):
-    url = "https://dataapi.marketpsych.com/rma/v4/files/equamer/dai?apikey=SECRETKEY"
+def test_list_files_retries_429_with_retry_after_and_paces_requests(monkeypatch):
     clock = [100.0]
     waits: list[float] = []
     calls: list[str] = []
 
-    class _Stub:
-        def read(self):
-            return b"{}"
-
-    def fake_urlopen(target, timeout=None):
-        calls.append(target)
+    def fake_urlopen(request, timeout=None):
+        calls.append(request.get_full_url())
         if len(calls) == 1:
             headers = Message()
             headers["Retry-After"] = "3"
             raise urllib.error.HTTPError(
-                target, 429, "Too Many Requests", headers, io.BytesIO(b"rate limited")
+                request.get_full_url(),
+                429,
+                "Too Many Requests",
+                headers,
+                io.BytesIO(b"rate limited"),
             )
-        return _Stub()
+        return _Response(_listing(_ARCHIVE))
 
     def fake_sleep(seconds):
         waits.append(seconds)
         clock[0] += seconds
 
+    monkeypatch.setattr(marketpsych, "api_key", lambda: "SECRET")
     monkeypatch.setattr(marketpsych, "_last_request", 0.0)
     monkeypatch.setattr(marketpsych.time, "monotonic", lambda: clock[0])
     monkeypatch.setattr(marketpsych.time, "sleep", fake_sleep)
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
 
-    assert marketpsych._request(url).read() == b"{}"
+    entries = marketpsych.list_files("equamer", "dai", "1998-01-01", "1998-03-01")
+    assert [e["filename"] for e in entries] == [_ARCHIVE]
     assert len(calls) == 2  # 429 then success
     assert waits == [3.0]  # Retry-After (3 s) wins over the 2 s backoff base
 
     clock[0] = marketpsych._last_request  # two requests with no time in between
     waits.clear()
-    marketpsych._request(url)
+    marketpsych.list_files("equamer", "dai", "1998-01-01", "1998-03-01")
     assert waits == [marketpsych._MIN_INTERVAL]  # client-side pacing
+
+
+def test_download_resumes_after_reset_with_range(tmp_path, monkeypatch):
+    blob = b"x" * (200 * 1024)  # more than one copyfileobj chunk
+    ranges: list[str | None] = []
+
+    def fake_urlopen(request, timeout=None):
+        header = request.get_header("Range")
+        ranges.append(header)
+        if header is None:
+            return _Reset(blob, 64 * 1024)  # the first chunk lands, then the reset
+        return _Response(blob[int(header[6:-1]) :], status=206)
+
+    monkeypatch.setattr(marketpsych, "_last_request", 0.0)
+    monkeypatch.setattr(marketpsych.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    path = tmp_path / "payload.zip"
+    marketpsych.download("https://files.marketpsychdata.com/PRO/x.zip?md5=0&expires=1", path)
+
+    assert ranges == [None, "bytes=65536-"]  # the retry asks for the rest, not the whole file
+    assert path.read_bytes() == blob
+    assert not path.with_name(path.name + ".tmp").exists()
 
 
 def test_build_behavioral_broadcasts_permid_to_each_ric(tmp_path):
