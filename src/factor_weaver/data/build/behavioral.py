@@ -1,8 +1,12 @@
-"""Assemble the interim behavioral file from the MarketPsych month caches.
+"""Assemble the interim behavioral file from the MarketPsych fetch-written slices.
 
 PermID → RIC is one-to-many (GOOG.OQ/GOOGL.OQ, CMCSA.OQ/CMCSK.OQ^L15,
 USB.N/FSR.N^B01), so each company series is broadcast to every RIC sharing it.
-Rows are sparse: a date without media coverage has no row here.
+Rows are sparse: a date without media coverage has no row here. A month's cached
+live-day slices and the monthly archive slice that supersedes them can both be on
+disk; duplicates collapse to the archive row. Rows outside the configured
+[marketpsych.start, end) window are dropped, because an archive covers its whole
+month while start/end may be mid-month.
 """
 
 import logging
@@ -19,7 +23,7 @@ OUT_COLS = ["date", "ric", "permid", "source", "buzz", "sentiment"]
 
 
 def build_behavioral(cfg: dict[str, Any]) -> None:
-    """Merge the raw month caches into <marketpsych.out>, keyed by (date, ric, source).
+    """Merge the fetch-written slices into <marketpsych.out>, keyed by (date, ric, source).
 
     Reads: <universe.assets_out>, <marketpsych.raw_out>/*.parquet
     Writes: <marketpsych.out>
@@ -36,6 +40,11 @@ def build_behavioral(cfg: dict[str, Any]) -> None:
     assets["permid"] = assets["permid"].astype(str)
     raw = pd.concat((pd.read_parquet(path) for path in caches), ignore_index=True)
     raw["permid"] = raw["permid"].astype(str)
+    # shortcut: keeps the first of duplicate (permid,date,source); archive sorts before
+    # live, a re-published day keeps the older slice
+    raw = raw.drop_duplicates(subset=["permid", "date", "source"])
+    mp = cfg["marketpsych"]
+    raw = raw[(raw["date"] >= pd.Timestamp(mp["start"])) & (raw["date"] < pd.Timestamp(mp["end"]))]
     out = raw.merge(assets, on="permid", how="inner")
     out = (
         out.reindex(columns=OUT_COLS)

@@ -1,20 +1,27 @@
-"""MarketPsych Analytics pull API: daily buzz (attention) + sentiment per asset.
+"""MarketPsych Analytics Files API: daily buzz (attention) + sentiment per asset.
 
-One parquet cache per calendar month under <marketpsych.raw_out>; the build step
-broadcasts the PermID-keyed series to every RIC sharing it. Cached months are
-never re-requested unless the pipeline runs with --refresh.
+One listing call per configured window, then one verbatim payload per listed file
+(monthly `PRO.Archive` zips for complete months, daily `PRO.Live` TSVs for the
+current month) under <marketpsych.raw_out>/files/, each next to a universe-filtered
+parquet slice. Slices are written per file and never re-parsed while present unless
+the pipeline runs with --refresh, which re-parses the kept payloads and downloads
+only the missing ones. Slices are filtered to <universe.assets_out>, so a universe
+change needs a fetch run with --refresh; the build step broadcasts the PermID-keyed
+series to every RIC sharing it.
 """
 
-import io
+import json
 import logging
 import os
 import random
+import shutil
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -23,40 +30,25 @@ from factor_weaver.data import store
 
 log = logging.getLogger(__name__)
 
-_ENTRY = "https://dataapi.marketpsych.com/rma/v4/data"
+_BASE = "https://dataapi.marketpsych.com/rma/v4/files"
 _ENV_VAR = "MARKETPSYCH_API_KEY"
-_MAX_ASSET_DAYS = 15_000  # documented pull limit per query (freq=dai)
-_MAX_CODES = 7000  # keep the asset list inside a sane URL length
 _TIMEOUT = 120  # seconds per HTTP call
-_MIN_INTERVAL = 1.0  # seconds between request starts → 60/min, below the 100/min data limit
+_MIN_INTERVAL = 1.0  # seconds between request starts
 _MAX_ATTEMPTS = 5
 _BACKOFF_BASE = 2.0  # retry waits ≈2, 4, 8, 16 s (+ jitter, or Retry-After when larger)
 RAW_COLS = ["permid", "date", "source", "buzz", "sentiment"]
+_RENAME = {"assetCode": "permid", "windowTimestamp": "date", "dataType": "source"}
 
 _last_request = 0.0
 
 
 def api_key() -> str:
-    """Read the pull API key from .env (never logged, echoed or written to a file)."""
+    """Read the API key from .env (never logged, echoed or written to a file)."""
     load_dotenv()
     key = os.getenv(_ENV_VAR)
     if not key:
         raise RuntimeError(f"{_ENV_VAR} missing from .env")
     return key
-
-
-def month_windows(start: str, end: str) -> list[tuple[str, str]]:
-    """Calendar-month [start, end) windows covering [start, end), clipped at both ends."""
-    first = cast(pd.Timestamp, pd.Timestamp(start))  # malformed dates raise; never NaT
-    last = cast(pd.Timestamp, pd.Timestamp(end))
-    if first >= last:
-        return []
-    bounds = [
-        first,
-        *pd.date_range(first, last, freq="MS", inclusive="neither").tolist(),
-        last,
-    ]
-    return [(f"{a:%Y-%m-%d}", f"{b:%Y-%m-%d}") for a, b in zip(bounds, bounds[1:])]
 
 
 def _throttle() -> None:
@@ -68,12 +60,12 @@ def _throttle() -> None:
     _last_request = time.monotonic()
 
 
-def http_get(url: str) -> bytes:
+def _request(url: str) -> Any:
     """GET a data URL, retrying throttles and 5xx; the URL carries the key, never log it."""
     _throttle()
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         try:
-            return urllib.request.urlopen(url, timeout=_TIMEOUT).read()
+            return urllib.request.urlopen(url, timeout=_TIMEOUT)
         except urllib.error.HTTPError as e:
             body = e.read().decode(errors="replace")
             retry_after = (e.headers.get("Retry-After") if e.headers else None) or 0
@@ -96,68 +88,92 @@ def http_get(url: str) -> bytes:
     raise RuntimeError(f"marketpsych request failed after {_MAX_ATTEMPTS} attempts")
 
 
-def normalize_pull(df: pd.DataFrame) -> pd.DataFrame:
-    """Rename the pull response to RAW_COLS; normalize permid, date and source."""
-    out = df.rename(
-        columns={"assetCode": "permid", "windowTimestamp": "date", "dataType": "source"}
-    )
+def list_files(asset_class: str, frequency: str, start: str, end: str) -> list[dict[str, Any]]:
+    """List the payload files covering [start, end); downloads are pre-signed links."""
+    query = urllib.parse.urlencode({"apikey": api_key(), "start_date": start, "end_date": end})
+    return json.loads(_request(f"{_BASE}/{asset_class}/{frequency}?{query}").read())["data"]
+
+
+def download(link: str, path: Path) -> None:
+    """Stream one payload to path via a temp file, so an interrupted transfer is no cache."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    with _request(link) as response, tmp.open("wb") as handle:
+        shutil.copyfileobj(response, handle)
+    tmp.replace(path)
+
+
+def read_slice(
+    payload: Path, permids: pd.Index, datatypes: set[str], datacols: list[str]
+) -> pd.DataFrame:
+    """Parse one payload (TSV, or a zip holding one TSV) into universe-filtered RAW_COLS."""
+    if payload.suffix == ".zip":
+        with zipfile.ZipFile(payload) as archive:
+            members = [name for name in archive.namelist() if name.endswith(".txt")]
+            if len(members) != 1:
+                raise RuntimeError(
+                    f"marketpsych: {payload.name}: expected one .txt member, found {members}"
+                )
+            with archive.open(members[0]) as handle:
+                return _parse(handle, payload, permids, datatypes, datacols)
+    with payload.open("rb") as handle:
+        return _parse(handle, payload, permids, datatypes, datacols)
+
+
+def _parse(
+    handle: Any, payload: Path, permids: pd.Index, datatypes: set[str], datacols: list[str]
+) -> pd.DataFrame:
+    cols = ["assetCode", "windowTimestamp", "dataType", *datacols]
+    try:
+        df = pd.read_csv(handle, sep="\t", usecols=pd.Index(cols))
+    except ValueError as e:  # a column the payload does not have
+        raise RuntimeError(f"marketpsych: {payload.name}: {e}") from None
+    out = df.rename(columns=_RENAME)
     out["permid"] = out["permid"].astype(str)
     out["date"] = pd.to_datetime(out["date"], utc=True).dt.tz_convert(None).dt.normalize()
     out["source"] = out["source"].str.lower()
+    keep = out["source"].isin(list(datatypes)) & out["permid"].isin(permids.tolist())
+    out = out.loc[keep]
     return out.reindex(columns=RAW_COLS).drop_duplicates(subset=["permid", "date", "source"])
 
 
 def fetch_marketpsych(cfg: dict[str, Any]) -> None:
-    """Cache one parquet slice per calendar month from the MarketPsych pull API.
+    """Download the listed payloads and write one universe-filtered slice per payload.
 
     Reads: <universe.assets_out>
-    Writes: one <marketpsych.raw_out>/YYYY-MM.parquet per month
+    Writes: <marketpsych.raw_out>/files/<filename>, <marketpsych.raw_out>/<filename>.parquet
     """
     assets_path = Path(cfg["universe"]["assets_out"])
     if not assets_path.exists():
         raise FileNotFoundError(f"run the universe step first; missing: {assets_path}")
-    permids = sorted(
-        pd.read_parquet(assets_path, columns=["permid"])["permid"].astype(str).unique()
+    permids = pd.Index(
+        sorted(pd.read_parquet(assets_path, columns=["permid"])["permid"].astype(str).unique())
     )
-    codes = ",".join(permids)
-    if len(permids) * 31 > _MAX_ASSET_DAYS:
-        raise RuntimeError(f"too many assets for one pull query: {len(permids)}")
-    if len(codes) > _MAX_CODES:
-        raise RuntimeError(f"asset code list too long for one URL: {len(codes)} codes")
-
     mp = cfg["marketpsych"]
-    cache_dir = Path(mp["raw_out"])
-    pending = []
-    for start, end in month_windows(mp["start"], mp["end"]):
-        path = store.cache_path(cache_dir, start[:7])
-        if not path.exists() or cfg.get("_refresh"):
-            pending.append((start, end, path))
+    datatypes = {d.lower() for d in mp["datatypes"]}
+    raw = Path(mp["raw_out"])
+    payload_dir = raw / "files"
+    entries = list_files(mp["asset_class"], mp["frequency"], mp["start"], mp["end"])
+    pending = [
+        e
+        for e in entries
+        if cfg.get("_refresh") or not store.cache_path(raw, e["filename"]).exists()
+    ]
     if not pending:
-        log.info("marketpsych: all month caches present in %s", cache_dir)
+        log.info("marketpsych: all file caches present in %s", raw)
         return
-
-    key = api_key()  # only needed when there is real work
-    base = f"{_ENTRY}/{mp['asset_class']}/{mp['frequency']}/{codes}"
-    datatypes = ",".join(mp["datatypes"])
-    datacols = ",".join(mp["datacols"])
-    for start, end, path in pending:
-        query = urllib.parse.urlencode(
-            {
-                "apikey": key,
-                "start_date": start,
-                "end_date": end,
-                "datatype": datatypes,
-                "datacols": datacols,
-                "format": "csv",
-            },
-            safe=",",
-        )
-        body = http_get(f"{base}?{query}")
-        df = (
-            pd.read_csv(io.BytesIO(body))
-            if body.strip()
-            else pd.DataFrame(columns=pd.Index(RAW_COLS))
-        )
-        store.write_parquet(normalize_pull(df), path)
-        log.info("wrote %s (%d rows)", path, len(df))
-    log.info("marketpsych: %d month caches in %s", len(pending), cache_dir)
+    log.info(
+        "marketpsych: %d files (%.2f GiB) to fetch",
+        len(pending),
+        sum(e["size"] for e in pending) / 2**30,
+    )
+    for entry in pending:
+        payload = payload_dir / entry["filename"]
+        if not payload.exists():  # kept payloads are re-parsed, never re-downloaded
+            log.info("marketpsych: %s (%.1f MB)", entry["filename"], entry["size"] / 1e6)
+            download(entry["link"], payload)
+        slice_path = store.cache_path(raw, entry["filename"])
+        slice = read_slice(payload, permids, datatypes, mp["datacols"])
+        store.write_parquet(slice, slice_path)
+        log.info("wrote %s (%d rows)", slice_path, len(slice))
+    log.info("marketpsych: %d file caches in %s", len(pending), raw)

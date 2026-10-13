@@ -26,10 +26,15 @@ universe:
 marketpsych:
   start: "1998-01-01" # LMA company history begins January 1998
   end: "2026-01-01" # exclusive, matches universe.end
-  asset_class: equ # CMPNY: all companies; regional classes miss non-Americas domiciles
+  asset_class: equamer # CMPNY_AMER: companies domiciled in the Americas only (guide ch. 7;
+  #                        the equ/CMPNY class adds 4.45 GiB for non-Americas domiciles).
+  #                        universe names domiciled elsewhere get no behavioral rows and show up
+  #                        in the build step's "no marketpsych rows for N rics" warning
   frequency: dai # daily, 24h window stamped 15:30 ET
-  datatypes: ["News_Social"] # combined news + social content
-  datacols: ["buzz", "sentiment"] # attention, net sentiment
+  datatypes: ["News_Social"] # combined news + social content; applied client-side (row filter)
+  datacols: ["buzz", "sentiment"] # attention, net sentiment; applied client-side (column select)
+  # the file API exposes no asset/datatype/column selection: whole months (Archive zips) and
+  # single days (Live TSVs) are downloaded, then clipped to [start, end) by the build step
   raw_out: data/raw/marketpsych
   out: data/interim/behavioral.parquet
 
