@@ -6,6 +6,7 @@ import urllib.error
 import urllib.request
 import zipfile
 from email.message import Message
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -87,16 +88,42 @@ def _slice(path, dates, buzz, permid="5030853586"):
     ).to_parquet(path, index=False)
 
 
+def _reference(*rows) -> bytes:
+    return json.dumps({"data": list(rows)}).encode()
+
+
+def _write_reference(path, rows=()):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(
+        [
+            {
+                "permid": str(row["assetCode"]),
+                "name": row.get("name"),
+                "ric": row.get("RIC"),
+                "ticker": row.get("Ticker"),
+                "status": row.get("status", "active"),
+                "current_permid": str(row.get("CurrentInstrumentIssuerPermid") or row["assetCode"]),
+            }
+            for row in rows
+        ],
+        columns=["permid", "name", "ric", "ticker", "status", "current_permid"],
+    ).to_parquet(path, index=False)
+
+
 def _cfg(tmp_path, assets_path, raw_dir, start="1998-01-01", end="1998-03-01"):
+    reference = Path(raw_dir) / "reference" / "assets.parquet"
+    if not reference.exists():
+        _write_reference(reference)  # empty map: fetch tests never need a reference request
     return {
         "universe": {"assets_out": str(assets_path)},
         "marketpsych": {
             "start": start,
             "end": end,
-            "asset_class": "equamer",
+            "asset_classes": ["equamer"],
             "frequency": "dai",
             "datatypes": ["News_Social"],
             "datacols": ["buzz", "sentiment"],
+            "reference_out": str(reference),
             "raw_out": str(raw_dir),
             "out": str(tmp_path / "behavioral.parquet"),
         },
@@ -125,13 +152,19 @@ def test_list_files_builds_url_and_parses_entries(monkeypatch):
 
 
 def _patch_open(monkeypatch, listing, payloads):
-    """Stub `_open`: the listing URL serves `listing`, payload links serve `payloads` by name."""
+    """Stub `_open`: listing URLs serve `listing` (a body, or per asset class when given a
+    dict keyed by class), payload links serve `payloads` by name."""
     calls: list[str] = []
 
     def fake_open(url, offset=0):
         if url.startswith(marketpsych._BASE):
             calls.append("listing")
-            return _Response(listing)
+            body = (
+                listing[url.split("/files/", 1)[1].split("/", 1)[0]]
+                if isinstance(listing, dict)
+                else listing
+            )
+            return _Response(body)
         name = url.split("?")[0].rsplit("/", 1)[-1]
         calls.append(name)
         return _Response(payloads[name])
@@ -139,6 +172,11 @@ def _patch_open(monkeypatch, listing, payloads):
     monkeypatch.setattr(marketpsych, "api_key", lambda: "SECRET")
     monkeypatch.setattr(marketpsych, "_open", fake_open)
     return calls
+
+
+def _patch_reference(monkeypatch, rows=()):
+    """Stub the asset reference request (its own opener, not the listing/payload one)."""
+    monkeypatch.setattr(marketpsych, "_open_reference", lambda url: _Response(_reference(*rows)))
 
 
 def test_fetch_writes_slice_per_listed_file_and_skips_cached(tmp_path, monkeypatch):
@@ -188,6 +226,7 @@ def test_fetch_refresh_reparses_without_redownloading(tmp_path, monkeypatch):
     payload.parent.mkdir(parents=True)
     payload.write_bytes(_tsv([_row("a", 4295905573, "News_Social", 3.0, 0.25)]))
     calls = _patch_open(monkeypatch, _listing(_LIVE), {})
+    _patch_reference(monkeypatch)  # --refresh refetches the reference too
 
     cfg = _cfg(tmp_path, assets_path, raw_dir)
     cfg["_refresh"] = True
@@ -198,11 +237,186 @@ def test_fetch_refresh_reparses_without_redownloading(tmp_path, monkeypatch):
     assert out["buzz"].tolist() == [3.0]
 
 
+def test_fetch_lists_each_asset_class(tmp_path, monkeypatch):
+    assets_path = tmp_path / "assets.parquet"
+    pd.DataFrame({"ric": ["SHEL.N"], "permid": ["4295885039"]}).to_parquet(assets_path, index=False)
+    raw_dir = tmp_path / "mp"
+    raw_dir.mkdir()
+    emea = "PRO.Archive.CMPNY_EMEA.WDAI_UDAI.199802.0400.zip"
+    blob = _tsv([_row("a", 4295885039, "News_Social", 3.0, 0.25)])
+    calls = _patch_open(
+        monkeypatch,
+        {"equamer": _listing(_ARCHIVE), "equemea": _listing(emea)},
+        {_ARCHIVE: _zip("payload.txt", _tsv([])), emea: _zip("payload.txt", blob)},
+    )
+    cfg = _cfg(tmp_path, assets_path, raw_dir)
+    cfg["marketpsych"]["asset_classes"] = ["equamer", "equemea"]
+
+    marketpsych.fetch_marketpsych(cfg)
+
+    assert calls.count("listing") == 2  # one listing per class
+    out = pd.read_parquet(store.cache_path(raw_dir, emea))
+    assert out["permid"].tolist() == ["4295885039"]
+    assert out["buzz"].tolist() == [3.0]
+
+
+def test_fetch_uses_reference_successor_link(tmp_path, monkeypatch):
+    assets_path = tmp_path / "assets.parquet"
+    pd.DataFrame({"ric": ["TSLA.OQ"], "permid": ["222"]}).to_parquet(assets_path, index=False)
+    raw_dir = tmp_path / "mp"
+    raw_dir.mkdir()
+    blob = _tsv([_row("a", 111, "News_Social", 3.0, 0.25)])
+    _patch_open(monkeypatch, _listing(_ARCHIVE), {_ARCHIVE: _zip("payload.txt", blob)})
+    cfg = _cfg(tmp_path, assets_path, raw_dir)
+    _write_reference(
+        cfg["marketpsych"]["reference_out"],
+        [{"assetCode": 111, "CurrentInstrumentIssuerPermid": 222}],
+    )
+
+    marketpsych.fetch_marketpsych(cfg)
+
+    out = pd.read_parquet(store.cache_path(raw_dir, _ARCHIVE))
+    assert out["permid"].tolist() == ["222"]  # old code re-keyed to the current company
+    assert out["buzz"].tolist() == [3.0]
+
+
+def test_fetch_does_not_rewrite_live_universe_permid(tmp_path, monkeypatch):
+    assets_path = tmp_path / "assets.parquet"
+    pd.DataFrame({"ric": ["HON.OQ", "MDT.N"], "permid": ["111", "222"]}).to_parquet(
+        assets_path, index=False
+    )
+    raw_dir = tmp_path / "mp"
+    raw_dir.mkdir()
+    blob = _tsv([_row("a", 111, "News_Social", 3.0, 0.25)])
+    _patch_open(monkeypatch, _listing(_ARCHIVE), {_ARCHIVE: _zip("payload.txt", blob)})
+    cfg = _cfg(tmp_path, assets_path, raw_dir)
+    _write_reference(
+        cfg["marketpsych"]["reference_out"],
+        [{"assetCode": 111, "CurrentInstrumentIssuerPermid": 222}],
+    )
+
+    marketpsych.fetch_marketpsych(cfg)
+
+    out = pd.read_parquet(store.cache_path(raw_dir, _ARCHIVE))
+    assert out["permid"].tolist() == ["111"]  # both ids are live: no rewrite, row survives
+
+
+def test_fetch_links_xom_by_normalized_name(tmp_path, monkeypatch):
+    assets_path = tmp_path / "assets.parquet"
+    pd.DataFrame({"ric": ["XOM.N"], "permid": ["6000179751"]}).to_parquet(assets_path, index=False)
+    raw_dir = tmp_path / "mp"
+    raw_dir.mkdir()
+    blob = _tsv([_row("a", 4295912121, "News_Social", 3.0, 0.25)])
+    _patch_open(monkeypatch, _listing(_ARCHIVE), {_ARCHIVE: _zip("payload.txt", blob)})
+    cfg = _cfg(tmp_path, assets_path, raw_dir)
+    _write_reference(
+        cfg["marketpsych"]["reference_out"],
+        [
+            {
+                "assetCode": 6000179751,
+                "name": "Exxonmobil Holdings Corp",
+                "RIC": "XOM.N",
+                "Ticker": "XOM",
+            },
+            {"assetCode": 4295912121, "name": "Exxon Mobil Corporation"},  # no RIC/ticker
+        ],
+    )
+
+    marketpsych.fetch_marketpsych(cfg)
+
+    out = pd.read_parquet(store.cache_path(raw_dir, _ARCHIVE))
+    assert out["permid"].tolist() == ["6000179751"]  # name fallback, no manual alias
+    assert out["buzz"].tolist() == [3.0]
+
+
+def test_fetch_fetches_reference_and_reparses_on_first_run(tmp_path, monkeypatch):
+    assets_path = tmp_path / "assets.parquet"
+    pd.DataFrame({"ric": ["TSLA.OQ"], "permid": ["222"]}).to_parquet(assets_path, index=False)
+    raw_dir = tmp_path / "mp"
+    payload = raw_dir / "files" / _ARCHIVE
+    payload.parent.mkdir(parents=True)
+    blob = _tsv([_row("a", 111, "News_Social", 3.0, 0.25)])
+    payload.write_bytes(_zip("payload.txt", blob))
+    _slice(store.cache_path(raw_dir, _ARCHIVE), ["1998-01-05"], [9.0], permid="222")  # stale
+    _patch_open(monkeypatch, _listing(_ARCHIVE), {})  # a payload download would KeyError
+    _patch_reference(
+        monkeypatch,
+        [
+            {"assetCode": 111, "CurrentInstrumentIssuerPermid": 222},
+            {"assetCode": 555, "CurrentInstrumentIssuerPermid": None},  # forces a nullable column
+        ],
+    )
+    cfg = _cfg(tmp_path, assets_path, raw_dir)
+    reference_path = Path(cfg["marketpsych"]["reference_out"])
+    reference_path.unlink()  # first run after the upgrade: no cached reference
+
+    marketpsych.fetch_marketpsych(cfg)
+
+    assert reference_path.exists()
+    out = pd.read_parquet(store.cache_path(raw_dir, _ARCHIVE))
+    assert out["permid"].tolist() == ["222"]  # re-parsed from the kept payload
+    assert out["buzz"].tolist() == [3.0]  # the stale slice is gone
+
+
+def test_fetch_skips_reference_fetch_when_cached(tmp_path, monkeypatch):
+    assets_path = tmp_path / "assets.parquet"
+    pd.DataFrame({"ric": ["AAPL.OQ"], "permid": ["4295905573"]}).to_parquet(
+        assets_path, index=False
+    )
+    raw_dir = tmp_path / "mp"
+    raw_dir.mkdir()
+    blob = _tsv([_row("a", 4295905573, "News_Social", 3.0, 0.25)])
+    _patch_open(monkeypatch, _listing(_LIVE), {_LIVE: blob})
+    cfg = _cfg(tmp_path, assets_path, raw_dir)  # _cfg writes the reference cache
+    monkeypatch.setattr(
+        marketpsych, "_open_reference", lambda url: pytest.fail("reference refetched")
+    )
+
+    marketpsych.fetch_marketpsych(cfg)
+
+    out = pd.read_parquet(store.cache_path(raw_dir, _LIVE))
+    assert out["buzz"].tolist() == [3.0]
+
+
+def test_build_aliases_drops_ambiguous_successor_links():
+    assets = pd.DataFrame({"permid": ["222", "333"]})
+    reference = pd.DataFrame(
+        {
+            "permid": ["111", "111"],
+            "name": ["Old Co", "Old Co"],
+            "ric": [None, None],
+            "ticker": [None, None],
+            "status": ["inactive", "inactive"],
+            "current_permid": ["222", "333"],  # one old code, two current companies
+        }
+    )
+
+    assert marketpsych.build_aliases(assets, reference) == {}
+
+
+def test_build_aliases_skips_ambiguous_name_keys():
+    assets = pd.DataFrame({"permid": ["222", "333"]})
+    reference = pd.DataFrame(
+        {
+            "permid": ["222", "333", "444"],
+            "name": ["Acme Corp", "Acme Incorporated", "Acme"],  # both normalize to "acme"
+            "ric": ["A.N", "B.N", None],
+            "ticker": ["A", "B", None],
+            "status": ["active"] * 3,
+            "current_permid": ["222", "333", "444"],
+        }
+    )
+
+    assert marketpsych.build_aliases(assets, reference) == {}
+
+
 def test_read_slice_rejects_unknown_columns(tmp_path):
     payload = tmp_path / "payload.txt"
-    payload.write_bytes(b"assetCode\twindowTimestamp\tdataType\tsentiment\n1\tx\tNews_Social\t0.1\n")
+    payload.write_bytes(
+        b"assetCode\twindowTimestamp\tdataType\tsentiment\n1\tx\tNews_Social\t0.1\n"
+    )
     with pytest.raises(RuntimeError, match="buzz"):
-        marketpsych.read_slice(payload, pd.Index(["1"]), {"news_social"}, ["buzz", "sentiment"])
+        marketpsych.read_slice(payload, pd.Index(["1"]), {"news_social"}, ["buzz", "sentiment"], {})
 
 
 def test_list_files_raises_api_error_body_without_leaking_key(monkeypatch):

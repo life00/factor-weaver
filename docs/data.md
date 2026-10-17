@@ -78,25 +78,7 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
 - technical
   - computed from prices (moving averages, volume indicators); `build/technicals.py` is a stub
 - behavioral
-  - LSEG MarketPsych Analytics Files API (`dataapi.marketpsych.com/rma/v4/files/equamer/dai`) — one
-    listing call for the configured window, then verbatim payload downloads: one monthly
-    `PRO.Archive` zip per complete month plus one `PRO.Live` TSV per day of the current month
-    (2.58 GiB for 1998-2025); companies domiciled in the Americas only (`CMPNY_AMER` folder), so
-    universe names domiciled elsewhere have no rows; daily 24h window stamped 15:30 ET; `buzz`
-    (attention) and `sentiment` (net polarity) keyed by company PermID; history from 1998
-    (English-only text until Feb 2020); rows are sparse — a day with no media coverage has no row,
-    and zero-filling is the panel's decision
-  - `datatypes` and `datacols` are applied client-side (row filter, column selection), since the
-    file API selects neither; every payload is parsed to `permid, date, source, buzz, sentiment`
-    and filtered to the universe PermIDs, kept as a slice `data/raw/marketpsych/<filename>.parquet`
-    next to the vendor payload `data/raw/marketpsych/files/<filename>`; slices are existence-cached
-    and paced at 60 requests/min, `--refresh` re-parses kept payloads and downloads only missing
-    ones, deleting a payload forces its re-download, and a universe change needs `--refresh`
-  - `build/behavioral.py` deduplicates a month's live-day slices against the monthly archive that
-    supersedes them, clips rows to `[marketpsych.start, end)` (an archive covers its whole month),
-    broadcasts each PermID series to every RIC sharing it (GOOG.OQ/GOOGL.OQ, CMCSA.OQ/CMCSK.OQ^L15,
-    USB.N/FSR.N^B01) into `data/interim/behavioral.parquet` and warns for universe RICs with no
-    rows; time-decay and panel integration are still pending
+  - using LSEG MarketPsych Analytics
 
 ## Issues
 
