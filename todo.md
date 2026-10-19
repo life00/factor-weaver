@@ -9,10 +9,12 @@
   - [x] obtain daily OHLCV data from LSEG
   - [x] decide on how to store extra assets in the universe (extra_prices.parquet)
   - [x] behavioral data pipeline for marketpsych
-  - [ ] retrieve and process behavioral data
+  - [x] use PermID's for universe
+  - [x] retrieve and process behavioral data
   - [ ] select and fetch fundamental variables
   - [ ] complete panel data file (date, ric, *features)
   - [ ] perform data check and cleanup (if necessary): missing values, errors (outliers)
+  - [ ] exploratory data analysis: basic descriptive statistics, correlation, and standardization of variables
 - workflow
   - [x] refactor cli workflow logic to be more consistent (fetch/build split, manifest + caching)
   - [x] standardize logging across the whole project
