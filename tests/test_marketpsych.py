@@ -301,6 +301,33 @@ def test_fetch_does_not_rewrite_live_universe_permid(tmp_path, monkeypatch):
     assert out["permid"].tolist() == ["111"]  # both ids are live: no rewrite, row survives
 
 
+def test_fetch_entity_override_replaces_permid_series(tmp_path, monkeypatch):
+    assets_path = tmp_path / "assets.parquet"
+    pd.DataFrame({"ric": ["LIN.OQ"], "permid": ["222"]}).to_parquet(assets_path, index=False)
+    raw_dir = tmp_path / "mp"
+    raw_dir.mkdir()
+    blob = _tsv(
+        [
+            _row("a", 111, "News_Social", 3.0, 0.25),
+            _row("b", 222, "News_Social", 5.0, 0.10),
+        ]
+    )
+    _patch_open(monkeypatch, _listing(_ARCHIVE), {_ARCHIVE: _zip("payload.txt", blob)})
+    cfg = _cfg(tmp_path, assets_path, raw_dir)
+    cfg["marketpsych"]["entity_overrides"] = {"222": "111"}
+
+    marketpsych.fetch_marketpsych(cfg)
+
+    out = pd.read_parquet(store.cache_path(raw_dir, _ARCHIVE))
+    assert out["permid"].tolist() == ["222"]  # override row re-keyed, native row dropped
+    assert out["buzz"].tolist() == [3.0]
+
+
+def test_entity_override_rejects_universe_permid():
+    with pytest.raises(ValueError, match="is a universe PermID"):
+        marketpsych.apply_overrides({}, {"1", "2"}, {"1": "2"})
+
+
 def test_fetch_links_xom_by_normalized_name(tmp_path, monkeypatch):
     assets_path = tmp_path / "assets.parquet"
     pd.DataFrame({"ric": ["XOM.N"], "permid": ["6000179751"]}).to_parquet(assets_path, index=False)

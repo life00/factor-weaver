@@ -35,9 +35,15 @@ marketpsych:
   datatypes: ["News_Social"] # combined news + social content; applied client-side (row filter)
   datacols: ["buzz", "sentiment"] # attention, net sentiment; applied client-side (column select)
   # MarketPsych keys a few entities on a different PermID than LSEG's Organization PermID for
-  # the same RIC. Aliases are generated from the vendor reference: current-link
+  # the same company. Aliases are generated from the vendor reference: current-link
   # (CurrentInstrumentIssuerPermid) plus a normalized-name fallback for unlinked legal entities
-  # (XOM among them). No manual alias config.
+  # (XOM among them). Where the vendor files a company under an unrelated entity,
+  # entity_overrides names it: universe PermID -> MP assetCode, replacing that PermID's own
+  # series. A change needs `data fetch marketpsych --refresh`.
+  entity_overrides:
+    "5083858869": "5057771033" # LIN.OQ <- Rounderway PLC = pre-2023 Linde plc (EMEA file)
+    "5090705090": "4295913071" # PSKY.OQ <- "Viacom Inc": 1999–2005 Viacom news (only member then)
+    "5030853586": "4295899948" # GOOGL.OQ <- Google LLC from 2014-03-28; Alphabet's code ~6x quieter
   reference_out: data/raw/marketpsych/reference/assets.parquet
   # the file API exposes no asset/datatype/column selection: whole months (Archive zips) and
   # single days (Live TSVs) are downloaded, then clipped to [start, end) by the build step

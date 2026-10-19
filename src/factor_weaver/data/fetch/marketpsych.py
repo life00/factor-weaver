@@ -7,7 +7,8 @@ parquet slice. Slices are written per file and never re-parsed while present unl
 the pipeline runs with --refresh, which re-parses the kept payloads and downloads
 only the missing ones. Slices are filtered to <universe.assets_out> after re-keying the
 vendor assetCodes through aliases generated from the cached asset reference
-(<marketpsych.reference_out>, GET /rma/v4/equ/assets), so a universe change needs a fetch
+(<marketpsych.reference_out>, GET /rma/v4/equ/assets) plus the manual
+<marketpsych.entity_overrides>, so a universe change needs a fetch
 run with --refresh; the build step broadcasts the PermID-keyed series to every RIC sharing it.
 """
 
@@ -267,6 +268,30 @@ def build_aliases(assets: pd.DataFrame, reference: pd.DataFrame) -> dict[str, st
     return aliases
 
 
+def apply_overrides(
+    aliases: dict[str, str], universe: set[str], overrides: dict[Any, Any]
+) -> dict[str, str]:
+    """Make <marketpsych.entity_overrides> codes the only source of their universe PermID.
+
+    The PermID's own rows and generated aliases into it map to "" (never a universe PermID),
+    so the parse filter drops them; pandas replace is not chained, so code -> PermID survives.
+    """
+    chosen = {str(permid): str(code) for permid, code in overrides.items()}
+    for permid, code in list(chosen.items()):
+        if permid not in universe:
+            log.warning("marketpsych: entity override %s: not a universe PermID; skipped", permid)
+            del chosen[permid]
+        elif code in universe:
+            raise ValueError(f"marketpsych: entity override {permid}: {code} is a universe PermID")
+    if len(set(chosen.values())) < len(chosen):
+        raise ValueError("marketpsych: entity overrides reuse an MP code")
+    out = {old: "" if new in chosen else new for old, new in aliases.items()}
+    out.update(dict.fromkeys(chosen, ""))
+    out.update({code: permid for permid, code in chosen.items()})
+    log.info("marketpsych: %d entity overrides", len(chosen))
+    return out
+
+
 def list_files(asset_class: str, frequency: str, start: str, end: str) -> list[dict[str, Any]]:
     """List the payload files covering [start, end); downloads are pre-signed links."""
     query = urllib.parse.urlencode({"apikey": api_key(), "start_date": start, "end_date": end})
@@ -366,7 +391,9 @@ def fetch_marketpsych(cfg: dict[str, Any]) -> None:
         for entry in list_files(cls, mp["frequency"], mp["start"], mp["end"])
     ]
     reference, reference_fetched = load_reference(cfg)
-    aliases = build_aliases(assets, reference)
+    aliases = apply_overrides(
+        build_aliases(assets, reference), set(permids), mp.get("entity_overrides") or {}
+    )
     pending = [
         e
         for e in entries
