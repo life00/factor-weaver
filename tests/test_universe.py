@@ -165,3 +165,19 @@ def test_delisted_flag(cfg):
     assert set(df.loc[df["ric"] == RIC["E"], "ticker"]) == {"E"}
     a = df.loc[df["ric"] == RIC["A"], "delisted"]
     assert len(a) and not bool(a.any())
+
+
+def test_share_classes_rank_once_per_permid(cfg):
+    path = cfg["lseg"]["mapping_out"]
+    m = pd.read_parquet(path)
+    m.loc[m["ric"] == RIC["E"], "permid"] = "4"
+    _write(m, path)
+    cfg["universe"]["top_n"] = 3
+    build_universe(cfg)
+    df = pd.read_parquet(cfg["universe"]["universe_out"])
+    rows = df[df["quarter_end"] == pd.Timestamp("2020-06-30")]
+    # E (5 member quarters) beats D (4) despite D's higher cap and alphabetical precedence
+    assert list(rows["ric"]) == ["A.N", "B.N", "E.N^X99"]
+    assert list(rows["permid"]) == ["1", "2", "4"]
+    assert list(rows["rank"]) == [1, 2, 3]
+    assert RIC["D"] not in set(pd.read_parquet(cfg["universe"]["assets_out"])["ric"])

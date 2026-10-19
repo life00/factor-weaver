@@ -15,6 +15,7 @@
   - rolling top 50 companies in S&P500
   - redefine list in each period
   - exclude RICs with no price content (`universe.exclude_rics`); next-ranked company fills the slot
+  - rank companies, not RICs: one RIC per LSEG PermID (share classes like GOOG/GOOGL share one company market cap); keep the RIC with the most S&P membership quarters, then alphabetical; RICs without a PermID are dropped
 - alignment
   - forward-fill fundamentals from their LSEG report date with per-group staleness counter
   - time-decay for behavioral features
@@ -71,7 +72,7 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
   - `build/universe.py` also writes `data/interim/assets.parquet`, the distinct RIC → ticker/name/permid registry used by the price steps
 - price
   - LSEG data API — daily OHLCV (RTS-adjusted), primary source; per-RIC cache in `data/raw/lseg/prices/`
-  - stale RICs retargeted via `lseg.ric_fallbacks` (FSR.N^B01 → USB.N, KHC.OQ → KHC.N), rows relabelled
+  - stale RICs retargeted via `lseg.ric_fallbacks` (KHC.OQ → KHC.N), rows relabelled
   - <https://finance.yahoo.com/> via `yfinance` — fallback for RICs without LSEG content (validated against the universe membership window) and source for the configured `extra_symbols` (`^GSPC`, `^VIX`, `^IRX`); fallback rows land in `prices.parquet`, extras in `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
 - fundamental
   - LSEG data API — planned, not yet implemented (`build/panel.py` is the integration point)
@@ -95,9 +96,9 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
 
 ### Prices
 
-- **Retired RICs with no price content**: FSR.N^B01 sourced from USB.N (same PermID,
-  `lseg.ric_fallbacks`); ENE.N^A02 has no LSEG or Yahoo content and is excluded
-  (`universe.exclude_rics`), next-ranked company backfills its 2 quarters (2000Q3/Q4)
+- **Retired RICs with no price content**: ENE.N^A02 has no LSEG or Yahoo content and is
+  excluded (`universe.exclude_rics`), next-ranked company backfills its 2 quarters (2000Q3/Q4).
+  FSR.N^B01 (no content) shares USB.N's PermID, so PermID dedup keeps USB.N instead
 - **Adjustment basis differs across vendors**: LSEG RTS vs Yahoo split/dividend-adjusted
   (back-adjusted on each dividend); Yahoo rows only fill LSEG gaps
 - **Existence-based caches**: reference files and per-RIC/per-symbol price caches are

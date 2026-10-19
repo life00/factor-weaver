@@ -7,7 +7,6 @@ lseg:
   prices_out: data/raw/lseg/prices
   ric_fallbacks: # in case content lives under another RIC
     KHC.OQ: KHC.N # same company (Kraft Heinz
-    FSR.N^B01: USB.N # same company (U.S. Bancorp)
 
 yahoo:
   prices_out: data/raw/yahoo/prices

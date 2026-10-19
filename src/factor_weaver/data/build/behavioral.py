@@ -1,7 +1,7 @@
 """Assemble the interim behavioral file from the MarketPsych fetch-written slices.
 
-PermID → RIC is one-to-many (GOOG.OQ/GOOGL.OQ, CMCSA.OQ/CMCSK.OQ^L15,
-USB.N/FSR.N^B01), so each company series is broadcast to every RIC sharing it.
+The universe keeps one RIC per PermID per quarter; if a company's RIC changes
+over time, the PermID-keyed series is broadcast to each of its RICs.
 Rows are sparse: a date without media coverage has no row here. A month's cached
 live-day slices and the monthly archive slice that supersedes them can both be on
 disk; duplicates collapse to the archive row. Rows outside the configured
