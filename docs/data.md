@@ -50,12 +50,10 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
   - current passive weight
   - price
     - daily OHLCV
-  - technical (stub; computed from prices)
-    - moving averages
-    - volume indicators
-  - fundamental (planned; LSEG)
-    - financial ratios
-    - market info
+  - technical (stub; computed from prices; see `docs/features.md`)
+    - `mom12_1`, `rev1m`, `vol`, `turnover`, `size`
+  - fundamental (planned; LSEG; see `docs/features.md`)
+    - `bm`, `sp`, `op`, `agr`, `nsi`
   - behavioral (LSEG MarketPsych)
     - attention — `buzz` (media coverage volume, news + social blended)
     - sentiment — `sentiment` (net polarity)
@@ -75,9 +73,9 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
   - stale RICs retargeted via `lseg.ric_fallbacks` (KHC.OQ → KHC.N), rows relabelled
   - <https://finance.yahoo.com/> via `yfinance` — fallback for RICs without LSEG content (validated against the universe membership window) and source for the configured `extra_symbols` (`^GSPC`, `^VIX`, `^IRX`); fallback rows land in `prices.parquet`, extras in `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
 - fundamental
-  - LSEG data API — planned, not yet implemented (`build/panel.py` is the integration point)
+  - LSEG data API — planned, not yet implemented (`build/panel.py` is the integration point); quarterly `TR.F.*` fields listed in `docs/features.md`
 - technical
-  - computed from prices (moving averages, volume indicators); `build/technicals.py` is a stub
+  - computed from prices (`docs/features.md`); `build/technicals.py` is a stub
 - behavioral
   - using LSEG MarketPsych Analytics
 

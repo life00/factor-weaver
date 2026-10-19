@@ -13,8 +13,13 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
 - variable selection
   - factors
     - Bartram et al. (2021): surveys the factor zoo from an institutional perspective; motivates fundamental factor selection and dimensionality reduction
+    - Fama & French (2015): five-factor model; canonical definitions of size, B/M, operating profitability and investment used for `size`, `bm`, `op`, `agr`
+    - Lewellen (2015): 15-characteristic Fama-MacBeth set with separate large-stock results; large-cap evidence for momentum, size, B/M, issuance and volatility
+    - Gu et al. (2020): variable-importance ranking (price trends, liquidity, risk, valuation) and publication-lag rule for the shared feature set
   - fundamental
     - Yan & Zheng (2017): mines 18,000+ fundamental signals; used to justify inclusion of fundamental ratios in the state space
+  - technical
+    - Medhat & Schmeling (2022): prior-month return conditioned on share turnover predicts returns most strongly in megacaps; justifies pairing `rev1m` with `turnover`
   - behavioral
     - attention
       - Vozlyublennaia (2014): Google search volume predicts short-term index returns; justifies Google search intensity as a feature
@@ -97,6 +102,7 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
 - González-Cortés, D., Onieva, E., Pastor, I., Trinchera, L., & Wu, J. (2024). Portfolio construction using explainable reinforcement learning. _Expert Systems_, _41_(11), e13667. <https://doi.org/10.1111/exsy.13667>
 - Gu, S., Kelly, B., & Xiu, D. (2020). Empirical Asset Pricing via Machine Learning. _The Review of Financial Studies_, _33_(5), 2223-2273. <https://doi.org/10.1093/rfs/hhaa009>
 - Gunjan, A., & Bhattacharyya, S. (2022). A brief review of portfolio optimization techniques. _Artificial Intelligence Review_, _56_(5), 3847-3886. <https://doi.org/10.1007/s10462-022-10273-7>
+- Fama, E. F., & French, K. R. (2015). A five-factor asset pricing model. _Journal of Financial Economics_, _116_(1), 1-22. <https://doi.org/10.1016/j.jfineco.2014.10.010>
 - He, G., & Litterman, R. (2002). The Intuition Behind Black-Litterman Model Portfolios. _SSRN_. <https://consensus.app/papers/details/4719e06784f95085930da2f2e115adb3/>
 - Jo, Y.-S., et al. (2026). Rethinking Variable Importance in Machine Learning: An Economic Perspective on Empirical Asset Pricing. _Financial Analysts Journal_. <https://consensus.app/papers/details/54b526c659a559cf8f981cd4bf0d38f6/>
 - Kirtac, K., & Germano, G. (2024). Sentiment trading with large language models. _Finance Research Letters_, _62_, 105227. <https://doi.org/10.1016/j.frl.2024.105227>
@@ -104,10 +110,12 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
 - Kolm, P. N., & Ritter, G. (2021). Factor Investing with Black-Litterman-Bayes: Incorporating Factor Views and Priors in Portfolio Construction. _The Journal of Portfolio Management_, _47_(2), 113-126. <https://www.pm-research.com/content/iijpormgmt/47/2/113>
 - Kolm, P. N., & Ritter, G. (2017). On the Bayesian interpretation of Black-Litterman. _European Journal of Operational Research_, _258_(2), 564-572. <https://doi.org/10.1016/j.ejor.2016.10.027>
 - Liu, X.-Y., Xia, Z., Rui, J., Gao, J., Yang, H., Zhu, M., Wang, C. D., Wang, Z., & Guo, J. (2022). FinRL-Meta: Market environments and benchmarks for data-driven financial reinforcement learning. _Advances in Neural Information Processing Systems_, _35_. <https://doi.org/10.48550/arXiv.2211.03107>
+- Lewellen, J. (2015). The Cross-section of Expected Stock Returns. _Critical Finance Review_, _4_(1), 1-44. <https://doi.org/10.1561/104.00000024>
 - Lesmond, D. A., Ogden, J. P., & Trzcinka, C. A. (1999). A New Estimate of Transaction Costs. _The Review of Financial Studies_, _12_(5), 1113-1147. <https://consensus.app/papers/details/d552cbda778c5425a2550156f5d85ab0/>
 - Mantshimuli, L. (2025). Sentiment-Aware Portfolio Optimization: CVaR-Based Diversification With Deep Reinforcement Learning. _IEEE Access_. <https://doi.org/10.1109/access.2025.3624652>
 - Ma, Y., et al. (2021). Portfolio optimization with return prediction using deep learning and machine learning. _Expert Systems with Applications_. <https://consensus.app/papers/details/53ce3d44adc952669d5891826a4d44cc/>
 - Markowitz, H. (1952). Portfolio Selection. _The Journal of Finance_, _7_(1), 77-91. <https://doi.org/10.1111/j.1540-6261.1952.tb01525.x>
+- Medhat, M., & Schmeling, M. (2022). Short-term Momentum. _The Review of Financial Studies_, _35_(3), 1480-1526. <https://doi.org/10.1093/rfs/hhab055>
 - Nazareth, N., & Reddy, Y. V. R. (2023). Financial applications of machine learning: A literature review. _Expert Systems with Applications_, _219_, 119640. <https://doi.org/10.1016/j.eswa.2023.119640>
 - Ranade, D. J., Bhaya, S., Bhimakari, S., Chan, M., Quille, K., & Jaiswal, R. (2026). On explaining the sentiments in prediction of stock movement: An XAI-based analysis. _Proceedings of the 2026 Conference on Human Centred Artificial Intelligence—Education and Practice_, 107–113. <https://doi.org/10.1145/3777490.3777510>
 - Rezaei, M., & Nezamabadi-Pour, H. (2025). A taxonomy of literature reviews and experimental study of deep reinforcement learning in portfolio management. _Artificial Intelligence Review_, _58_(3). <https://doi.org/10.1007/s10462-024-11066-w>
