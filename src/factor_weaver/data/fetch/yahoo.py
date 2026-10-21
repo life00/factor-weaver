@@ -1,9 +1,8 @@
-"""Yahoo Finance source: extra index/ETF series and fallback prices for LSEG gaps.
+"""Yahoo Finance source: extra index/ETF series (`yahoo.extra_symbols`), not stock prices.
 
 Each symbol is cached as one parquet file under <yahoo.prices_out> (file
-existence means cached; `--refresh` or deleting the file refetches). The build
-step turns fallback rows into universe prices and splits the extra series into
-<yahoo.extra_prices_out>.
+existence means cached; `--refresh` or deleting the file refetches). The
+extra-prices build step merges them into <yahoo.extra_prices_out>.
 """
 
 import logging
@@ -19,11 +18,6 @@ log = logging.getLogger(__name__)
 
 OUT_COLS = ["date", "symbol", "open", "high", "low", "close", "volume"]
 _RENAME = {"Open": "open", "High": "high", "Low": "low", "Close": "close", "Volume": "volume"}
-
-
-def resolve_symbol(cfg: dict[str, Any], ric: str, ticker: str) -> str:
-    """Yahoo symbol for a universe RIC; <yahoo.symbol_overrides> wins over ticker."""
-    return ((cfg.get("yahoo") or {}).get("symbol_overrides") or {}).get(ric, ticker)
 
 
 def _normalize(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
@@ -46,7 +40,7 @@ def _fetch_symbol(symbol: str, start: str, end: str) -> pd.DataFrame:
             start=str(start),
             end=end_exclusive,
             interval="1d",
-            auto_adjust=True,  # split+dividend adjusted, same basis as the LSEG prices
+            auto_adjust=True,  # split+dividend adjusted (no-op for indices and yields)
             actions=False,
         )
     except Exception as e:  # yfinance raises on network/parse problems
@@ -96,3 +90,17 @@ def fetch_symbols(
         .sort_values(by=["date", "symbol"])
         .reset_index(drop=True)
     )
+
+
+def fetch_yahoo_prices(cfg: dict[str, Any]) -> None:
+    """Cache the configured extra series.
+
+    Reads: <yahoo.extra_symbols>
+    Writes: per-symbol cache under <yahoo.prices_out>
+    """
+    symbols = list((cfg.get("yahoo") or {}).get("extra_symbols") or [])
+    if not symbols:
+        log.info("yahoo-prices: no extra symbols configured")
+        return
+    u = cfg["universe"]
+    fetch_symbols(cfg, symbols, u["start"], u["end"], refresh=bool(cfg.get("_refresh")))

@@ -37,8 +37,8 @@ t-statistics from Lewellen (2015) Table 2 (stocks above the NYSE median, 15-vari
 
 - clock: daily per (date, RIC); monthly models sample on rebalance dates
 - windows: trading days for prices (21 = 1 month, 252 = 12 months, 756 = 36 months); calendar days for behavioral data (MarketPsych publishes on weekends)
-- prices: LSEG split-, spin-off- and dividend-adjusted closes, Yahoo fallback on the same basis → close ratios are total returns
-- volume: LSEG consolidated volume (company queried by PermID; 10 retired companies keep exchange volume, `docs/data.md`); NASDAQ before 2004 not halved for double counting
+- prices: LSEG split-, spin-off- and dividend-adjusted closes → close ratios are total returns
+- volume: LSEG consolidated volume (company queried by PermID; companies resolving to another share line keep exchange volume, `docs/data.md`); NASDAQ before 2004 not halved for double counting
 - market equity: `ME_t` = last quarter-end market cap × `close_t / close_q`
   - shortcut: ignores share changes and counts dividends since quarter end (≤ ~1%)
 - shares outstanding: split-adjusted; LSEG field to identify

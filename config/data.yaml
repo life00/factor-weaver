@@ -9,12 +9,11 @@ lseg:
 yahoo:
   prices_out: data/raw/yahoo/prices
   extra_prices_out: data/interim/extra_prices.parquet
-  extra_symbols: ["^GSPC", "^VIX", "^IRX"] # extra series
-  symbol_overrides: {} # universe RIC -> Yahoo symbol (if ticker differs)
+  extra_symbols: ["^GSPC", "^VIX", "^IRX"] # index/yield series; stock prices are LSEG-only
 
 universe:
   top_n: 50
-  exclude_rics: ["ENE.N^A02"] # no LSEG or Yahoo prices
+  exclude_rics: ["ENE.N^A02"] # no LSEG prices
   start: "1997-12-31" # behavioral data starts in 1998
   end: "2026-01-01"
   universe_out: data/interim/universe.parquet

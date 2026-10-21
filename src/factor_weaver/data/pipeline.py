@@ -17,8 +17,7 @@ from rich.text import Text
 
 from factor_weaver.data.build import behavioral, panel, split, technicals, universe
 from factor_weaver.data.build import prices as build_prices
-from factor_weaver.data.fetch import lseg, marketpsych
-from factor_weaver.data.fetch import prices as fetch_prices
+from factor_weaver.data.fetch import lseg, marketpsych, yahoo
 from factor_weaver.output import out
 
 log = logging.getLogger(__name__)
@@ -78,7 +77,7 @@ STEPS: tuple[Step, ...] = (
     ),
     Step(
         "lseg-prices",
-        fetch_prices.fetch_lseg_prices,
+        lseg.fetch_lseg_prices,
         "fetch",
         ins=("universe.assets_out",),
         outs=("lseg.prices_out",),
@@ -86,9 +85,8 @@ STEPS: tuple[Step, ...] = (
     ),
     Step(
         "yahoo-prices",
-        fetch_prices.fetch_yahoo_prices,
+        yahoo.fetch_yahoo_prices,
         "fetch",
-        ins=("universe.assets_out", "lseg.prices_out"),
         outs=("yahoo.prices_out",),
         per_item=True,
     ),
@@ -104,8 +102,15 @@ STEPS: tuple[Step, ...] = (
         "prices",
         build_prices.build_prices,
         "build",
-        ins=("universe.assets_out", "lseg.prices_out", "yahoo.prices_out"),
-        outs=("prices.out", "yahoo.extra_prices_out"),
+        ins=("universe.assets_out", "lseg.prices_out"),
+        outs=("prices.out",),
+    ),
+    Step(
+        "extra-prices",
+        build_prices.build_extra_prices,
+        "build",
+        ins=("yahoo.prices_out",),
+        outs=("yahoo.extra_prices_out",),
     ),
     Step(
         "behavioral",

@@ -8,7 +8,7 @@
   - `data/` — MODULE 1: raw sources → panel
     - `pipeline.py` — ordered `Step` manifest + dependency-aware runner
     - `store.py` — parquet writes + cache paths
-    - `fetch/` — external I/O only (`lseg`, `yahoo`, `prices`); writes `data/raw/`
+    - `fetch/` — external I/O only, one module per source (`lseg`, `yahoo`, `marketpsych`); writes `data/raw/`
     - `build/` — derived data only (`universe`, `prices`, `technicals`, `panel`, `split`); writes `data/interim|processed`
   - `models/` — MODULE 2: weight-producing models (`simple`, `optimize`, `mean_variance`, `black_litterman`, `ml_forecast`, `rl/`); registry + trainers in `models/__init__.py`
   - `eval/` — MODULE 3: shared daily backtest engine + metrics
@@ -19,7 +19,7 @@ flowchart TB
   cli --> workflows["workflows/<br/>data · train · evaluate · report"]
 
   workflows --> pipeline["data/pipeline.py<br/>Step manifest + runner"]
-  pipeline --> fetch["data/fetch/<br/>lseg · yahoo · prices"]
+  pipeline --> fetch["data/fetch/<br/>lseg · yahoo · marketpsych"]
   pipeline --> build["data/build/<br/>universe · prices · technicals · panel · split"]
   fetch --> raw[("data/raw/")]
   build --> derived[("data/interim<br/>data/processed")]

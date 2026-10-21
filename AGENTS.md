@@ -1,6 +1,6 @@
 # Factor Weaver — Agent Guide
 
-**Status: data pipeline implemented through prices** (LSEG retrieval, top-50 universe, LSEG prices with Yahoo fallback + extra series); `technicals`, `panel`, `split` are stubs. Models, shared engine, and `train`/`eval` workflows are stubbed per `PLAN.md`.
+**Status: data pipeline implemented through prices** (LSEG retrieval, top-50 universe, LSEG prices, Yahoo index/yield series); `technicals`, `panel`, `split` are stubs. Models, shared engine, and `train`/`eval` workflows are stubbed per `PLAN.md`.
 
 ## Project
 
@@ -19,7 +19,7 @@ src/factor_weaver/
 ├── data/             # MODULE 1
 │   ├── pipeline.py   #   step manifest (Step: phase, ins, outs) + dependency-aware runner
 │   ├── store.py      #   shared parquet read/write + cache paths
-│   ├── fetch/        #   external I/O only: lseg, yahoo, prices (writes data/raw/ caches)
+│   ├── fetch/        #   external I/O only, one module per source: lseg, yahoo, marketpsych (writes data/raw/)
 │   └── build/        #   derived data only: universe, prices, technicals, panel, split
 ├── models/           # MODULE 2: weight-producing models: simple, optimize, mean_variance, black_litterman, ml_forecast, rl/ (env, model, ppo, policy)
 └── eval/             # MODULE 3: backtest (shared engine + metrics)
@@ -58,7 +58,7 @@ tests/                # pytest checks (universe/prices tests synthetic)
 ## Dependencies
 
 - S&P500 constituent list, joiner/leaver history (since 1994), RIC mapping, and market cap (`TR.CompanyMarketCap`, fallback `TR.F.MktCap`): fetched from LSEG data API, cached in `data/raw/lseg/`; used for top-50 universe selection.
-- Price data: LSEG data API daily OHLCV (per-RIC cache in `data/raw/lseg/prices/`); Yahoo Finance (`yfinance`) is the fallback for RICs LSEG cannot serve and the source for extra index/ETF series (per-symbol cache in `data/raw/yahoo/prices/`).
+- Price data: LSEG data API daily OHLCV for every universe stock (per-RIC cache in `data/raw/lseg/prices/`; no fallback source); Yahoo Finance (`yfinance`) only for the extra index/yield series in `yahoo.extra_symbols` (per-symbol cache in `data/raw/yahoo/prices/`).
 - Fundamentals: planned from LSEG (not yet implemented; the `panel` build step is the integration point).
 - Behavioral: planned from MarketPsych (not yet implemented).
 - Benchmarks/evaluation (per `docs/models.md`): scikit-learn (GBRT, Ledoit–Wolf), PyPortfolioOpt (tangency optimizer), mlflow (tracking) — declared in `pyproject.toml`; risk-free via `^IRX` (yield series, not a price).

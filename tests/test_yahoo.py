@@ -1,17 +1,10 @@
-"""Synthetic checks for Yahoo normalization, caching and the market step (no network)."""
+"""Synthetic checks for Yahoo normalization and caching (no network)."""
 
 import pandas as pd
 
 from factor_weaver.data.fetch import yahoo
 
 _COLS = ["date", "symbol", "open", "high", "low", "close", "volume"]
-
-
-def test_resolve_symbol_override_wins_over_ticker():
-    cfg = {"yahoo": {"symbol_overrides": {"A.N": "AA"}}}
-    assert yahoo.resolve_symbol(cfg, "A.N", "A") == "AA"
-    assert yahoo.resolve_symbol(cfg, "B.N", "B") == "B"
-    assert yahoo.resolve_symbol({}, "B.N", "B") == "B"
 
 
 def test_normalize_tz_aware_history():

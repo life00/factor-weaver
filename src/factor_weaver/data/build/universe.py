@@ -131,6 +131,11 @@ def build_universe(cfg: dict[str, Any]) -> None:
         )
         .loc[:, _ASSET_COLS]
     )
+    # one asset per PermID: collapsing RICs would silently mix share lines; fix upstream
+    dup = assets.loc[assets["permid"].duplicated(keep=False)]
+    if not dup.empty:
+        pairs = dup[["permid", "ric"]].to_dict("records")
+        raise ValueError(f"PermIDs with several universe RICs: {pairs}")
     assets_out = Path(u["assets_out"])
     store.write_parquet(assets, assets_out)
 

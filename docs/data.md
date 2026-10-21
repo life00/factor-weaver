@@ -26,14 +26,15 @@
 flowchart LR
   lseg[("LSEG data API")] --> fetch_ref["fetch: constituents<br/>joiners/leavers · mapping · market cap"]
   lseg --> fetch_px["fetch: daily OHLCV per RIC"]
-  yahoo[("Yahoo Finance")] --> fetch_yf["fetch: fallback RICs · extra symbols"]
+  yahoo[("Yahoo Finance")] --> fetch_yf["fetch: extra symbols<br/>indices · yields"]
   mpsych[("MarketPsych Files API")] --> fetch_mp["fetch: behavioral<br/>file listing + downloads"]
   fetch_ref --> raw[("data/raw/")]
   fetch_px --> raw
   fetch_yf --> raw
   fetch_mp --> raw
   raw --> univ["build: universe<br/>top-50 S&P500 per quarter"]
-  raw --> bprices["build: prices<br/>canonical OHLCV + extra series"]
+  raw --> bprices["build: prices<br/>LSEG OHLCV per universe RIC"]
+  raw --> bextra["build: extra-prices<br/>Yahoo extra series"]
   raw --> bbeh["build: behavioral<br/>sparse PermID → RIC rows"]
   bprices --> tech["build: technicals (stub)"]
   bbeh -.-> panel
@@ -69,8 +70,8 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
   - `build/universe.py` also writes `data/interim/assets.parquet`, the distinct RIC → ticker/name/permid registry used by the price steps
 - price
   - LSEG data API — daily OHLCV, primary source; RTS-adjusted (splits, spin-offs) with cash dividends folded in from `TR.TotalReturn`; per-RIC cache in `data/raw/lseg/prices/`
-  - queried by PermID: each company's US consolidated RIC (LSEG symbology), rows labelled with the universe RIC; follows renames (PSKY.OQ → SKYD.K) and carries consolidated volume
-  - <https://finance.yahoo.com/> via `yfinance` — fallback for RICs without LSEG content (validated against the universe membership window) and source for the configured `extra_symbols` (`^GSPC`, `^VIX`, `^IRX`); fallback rows land in `prices.parquet`, extras in `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
+  - PermID-resolved, universe share line: each company's US consolidated RIC (LSEG symbology) when it is the universe line (KO.N → KO), else the universe RIC; the other is the fallback (renames: PSKY.OQ → SKYD.K); a series must cover the membership window; rows labelled with the universe RIC
+  - <https://finance.yahoo.com/> via `yfinance` — only the configured `extra_symbols` (`^GSPC`, `^VIX`, `^IRX`), never universe stocks; `extra-prices` build step writes them to `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
 - fundamental
   - LSEG data API — planned, not yet implemented (`build/panel.py` is the integration point); quarterly `TR.F.*` fields listed in `docs/features.md`
 - technical
@@ -93,9 +94,11 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
 
 ### Prices
 
-- **Retired RICs with no price content**: ENE.N^A02 has no LSEG or Yahoo content and is
+- **Retired RICs with no price content**: ENE.N^A02 has no LSEG content and is
   excluded (`universe.exclude_rics`), next-ranked company backfills its 2 quarters (2000Q3/Q4).
-  FSR.N^B01 (no content) shares USB.N's PermID, so PermID dedup keeps USB.N instead
+  FSR.N^B01 (no content) shares USB.N's PermID, so PermID dedup keeps USB.N instead. There is
+  no other stock-price source: a RIC LSEG cannot serve over its membership window has no
+  cache, and `build prices` lists it as missing
 - **Dividends are derived**: LSEG RTS adjusts splits and spin-offs but not cash dividends
   (closes equal Yahoo's unadjusted Close). `fetch_history` back-adjusts OHLC by each day's
   price-return / total-return factor from `TR.TotalReturn`, the basis of Yahoo's auto_adjust;
@@ -103,9 +106,9 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
 - **Consolidated volume needs consolidated RICs**: exchange RICs (`.N`, `.OQ`) count their own
   venue only, 25–35% of consolidated volume since 2010; the PermID query returns consolidated
   RICs (AAPL.O, JNJ). NASDAQ volume before 2004 is not halved for double counting (Gao and
-  Ritter 2010 adjustment; [medhat-2022-short-term-momentum] finds no effect). Ten retired
-  companies whose PermID resolves to a bond or when-issued line fall back to their exchange
-  RIC and keep exchange volume (MER, RAI, S and TWX^F18 after 2007)
+  Ritter 2010 adjustment; [medhat-2022-short-term-momentum] finds no effect). Companies
+  whose PermID resolves to another share line (class, preferred, bond, when-issued) are priced
+  from their exchange RIC and keep exchange volume (BRKb, MER, RAI, S and TWX^F18 after 2007)
 - **Existence-based caches**: reference files and per-RIC/per-symbol price caches are
   skipped when present; use `factor-weaver data fetch --refresh` (optionally per step,
   e.g. `data fetch lseg-constituents --refresh`) instead of deleting files

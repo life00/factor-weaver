@@ -1,7 +1,9 @@
-"""LSEG data API access: platform session (lseg-data library) + S&P500 constituents.
+"""LSEG data API access: platform session (lseg-data library), S&P500 constituents, prices.
 
 S&P500 membership history is reconstructed (in universe.py) from the current
 constituent snapshot as anchor plus joiner/leaver events applied backwards.
+Daily prices are cached per universe RIC under <lseg.prices_out>; cached files are
+never refetched unless the pipeline runs with --refresh.
 """
 
 import logging
@@ -260,6 +262,114 @@ def fetch_history(ld: Any, ric: str, start: str, end: str) -> pd.DataFrame:
         log.warning("%s: no TR.TotalReturn; prices stay dividend-unadjusted", ric)
         return df
     return _dividend_adjust(df, tr)
+
+
+def _attempt(fn: Any) -> tuple[pd.DataFrame, str | None]:
+    """Run a fetch callable; return (data, error), treating empty as an error."""
+    try:
+        df = fn()
+    except Exception as e:  # the API raises when nothing is found
+        return pd.DataFrame(), str(e).splitlines()[0]
+    if df.empty:
+        return pd.DataFrame(), "no usable rows"
+    return df, None
+
+
+def _same_line(a: str, b: str) -> bool:
+    """True when two RICs differ only by venue/retirement suffix (KO.N/KO, AGN.N^E20/AGN^E20)."""
+    return a.split("^")[0].split(".")[0] == b.split("^")[0].split(".")[0]
+
+
+def _covers(df: pd.DataFrame, first: Any, last: Any) -> bool:
+    """True when a series spans the RIC's universe membership window."""
+    return not df.empty and df["date"].min() <= first and df["date"].max() >= last
+
+
+def _try_lseg(
+    ld: Any, ric: str, query: str, start: str, end: str, first: Any, last: Any
+) -> tuple[pd.DataFrame, str | None]:
+    """Fetch the universe share line covering first..last; rows keep the universe label.
+
+    The PermID-resolved query RIC goes first only when it is the same share line as the
+    universe RIC (consolidated volume); otherwise the universe RIC goes first, since
+    PermIDs resolve to other classes, preferreds, bonds or when-issued lines (BRKb → BRKa).
+    The other candidate is the fallback, which keeps renames working (PSKY.OQ → SKYD.K).
+    """
+    errors: list[str] = []
+    candidates = [query, ric] if _same_line(ric, query) else [ric, query]
+    for candidate in dict.fromkeys(candidates):
+        df, err = _attempt(lambda c=candidate: fetch_history(ld, c, start, end))
+        if err is None and not _covers(df, first, last):
+            err = f"no rows covering {first:%Y-%m-%d}..{last:%Y-%m-%d}"
+        if err is None:
+            if not _same_line(ric, candidate):
+                log.warning("%s: priced from %s (different share line)", ric, candidate)
+            df["ric"] = ric
+            return df, None
+        errors.append(f"{candidate}: {err}")
+    return pd.DataFrame(), "; ".join(errors)
+
+
+def fetch_lseg_prices(cfg: dict[str, Any]) -> None:
+    """Cache daily OHLCV per registry company (PermID-resolved, universe share line).
+
+    Reads: <universe.assets_out>
+    Writes: per-RIC cache under <lseg.prices_out>
+    """
+    assets_path = Path(cfg["universe"]["assets_out"])
+    if not assets_path.exists():
+        raise FileNotFoundError(f"run the universe step first; missing: {assets_path}")
+    assets = pd.read_parquet(assets_path)
+    cache_dir = Path(cfg["lseg"]["prices_out"])
+    start, end = cfg["universe"]["start"], cfg["universe"]["end"]
+    refresh = bool(cfg.get("_refresh"))
+
+    pending: list[tuple[str, str, Path, Any, Any]] = []
+    cached = 0
+    for row in assets.to_dict("records"):
+        ric = str(row["ric"])
+        path = store.cache_path(cache_dir, ric, url_quote=True)
+        if path.exists() and not refresh:
+            cached += 1
+            log.debug("  %s: cached", ric)
+        else:
+            pending.append(
+                (ric, str(row["permid"]), path, row["first_quarter_end"], row["last_quarter_end"])
+            )
+
+    fetched = 0
+    failures: list[tuple[str, str]] = []
+    if pending:  # no session/credentials needed when every RIC is cached
+        import lseg.data as ld
+
+        ld.get_config().set_param("http.request-timeout", 300)  # default 20s too short for 30y
+        with session() as ld:
+            query = resolve_permids(ld, sorted({p[1] for p in pending}))
+            for ric, permid, path, first, last in pending:
+                if permid not in query:
+                    log.warning("%s: PermID %s unresolved; using universe RIC", ric, permid)
+                df, err = _try_lseg(ld, ric, query.get(permid, ric), start, end, first, last)
+                if err is None:
+                    if len(df) >= 10000:
+                        log.warning("%s: hit the 10,000-row request ceiling", ric)
+                    store.write_parquet(df, path)
+                    fetched += 1
+                    log.debug("  %s: fetched %d rows", ric, len(df))
+                else:
+                    failures.append((ric, err))
+                    log.debug("  %s: failed (%s)", ric, err)
+
+    log.info(
+        "lseg-prices: %d cached, %d fetched, %d failed (%d rics)",
+        cached,
+        fetched,
+        len(failures),
+        len(assets),
+    )
+    for ric, err in failures:
+        log.warning("  %s: %s", ric, err)
+    if cached + fetched == 0 and len(assets):
+        raise RuntimeError(f"no LSEG price data fetched; failures: {failures}")
 
 
 def fetch_market_cap(cfg: dict[str, Any]) -> None:
