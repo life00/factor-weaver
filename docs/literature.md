@@ -13,21 +13,26 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
 - variable selection
   - factors
     - Bartram et al. (2021): surveys the factor zoo from an institutional perspective; motivates fundamental factor selection and dimensionality reduction
-    - Fama & French (2015): five-factor model; canonical definitions of size, B/M, operating profitability and investment used for `size`, `bm`, `op`, `agr`
+    - Fama & French (2015): five-factor model; canonical definitions of size, book-to-market, operating profitability and asset growth
     - Lewellen (2015): 15-characteristic Fama-MacBeth set with separate large-stock results; large-cap evidence for momentum, size, B/M, issuance and volatility
     - Gu et al. (2020): variable-importance ranking (price trends, liquidity, risk, valuation) and publication-lag rule for the shared feature set
   - fundamental
     - Yan & Zheng (2017): mines 18,000+ fundamental signals; used to justify inclusion of fundamental ratios in the state space
   - technical
-    - Medhat & Schmeling (2022): prior-month return conditioned on share turnover predicts returns most strongly in megacaps; justifies pairing `rev1m` with `turnover`
-  - behavioral
+    - Medhat & Schmeling (2022): prior-month return conditioned on share turnover predicts returns most strongly in megacaps; justifies pairing short-term reversal with share turnover
+  - behavioral (MarketPsych buzz and sentiment; see `docs/features.md`)
     - attention
-      - Vozlyublennaia (2014): Google search volume predicts short-term index returns; justifies Google search intensity as a feature
+      - Da, Engelberg & Gao (2011): abnormal attention (log search volume against its 8-week median) predicts +18.7 bps next week per SD, largely reversed within a year, only in the smaller half of the Russell 3000; construction for abnormal buzz
+      - Heston & Sinha (2017): firms with and without news earn different returns, but not in the largest size decile (t = 0.18)
     - sentiment
-      - Kirtac & Germano (2025): theoretical framing of financial sentiment and LLM-based measurement; provides the conceptual foundation
-      - Dong et al. (2024): FNSPID dataset: 15.7M time-aligned news records across 4,775 S&P500 tickers; provides the data pipeline methodology
-      - Benhenda (2025): relevant implementation using FinRL and FNSPID dataset
-      - Ranade et al. (2026): time-decay mechanism for aging news, confidence-based aggregation; justifies the scoring and aggregation methodology
+      - Tetlock, Saar-Tsechansky & Macskassy (2008): negative words in news about S&P 500 firms predict low earnings and next-day returns (−3.2 bps per SD); canonical firm-level news sentiment
+      - Heston & Sinha (2017): Thomson Reuters neural-network news sentiment; daily news predicts returns for 1–2 days, weekly news for 13 weeks; justifies the 7-day decay
+    - rejected (MarketPsych replaces search data and in-house LLM scoring)
+      - Vozlyublennaia (2014): Google search volume predicts index returns; index-level, search data not used
+      - Kirtac & Germano (2025): conceptual framing of LLM-measured sentiment; scores come from MarketPsych
+      - Dong et al. (2024): FNSPID news dataset; not used, ends in 2023
+      - Benhenda (2025): FinRL implementation on FNSPID; not used
+      - Ranade et al. (2026): time decay for aging news; decay horizon taken from Heston & Sinha (2017)
   - data sample / survivorship bias
     - Liu et al. (2022): identifies survivorship bias as a key challenge in DRL backtesting; provides framework for bias-aware environment construction
 - RL assumptions
@@ -59,7 +64,7 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
     - Zhang et al. (2020): cost-sensitive DRL portfolio; directly models transaction costs in the reward function
     - Almahdi & Yang (2017): RRL with transaction costs and maximum-drawdown-based reward (224 citations); compares Sharpe, Calmar, Sterling objectives under different cost scenarios
 - behavioral feature integration
-  - pre-computed LLM sentiment scores fed as RL state features
+  - pre-computed sentiment scores fed as RL state features
     - Kirtac & Germano (2024): pre-computed OPT sentiment scores achieve Sharpe 3.05, outperforming dictionary methods (1.23); validates the pre-compute approach
     - Mantshimuli (2025): FinBERT scores pre-computed and fed into DDPG DRL state space; confirms the offline-scores-to-RL pipeline beats all benchmarks
 - model architecture
@@ -93,6 +98,7 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
 - Bartram, S. M., Lohre, H., Pope, P. F., & Ranganathan, A. (2021). Navigating the factor zoo around the world: An institutional investor perspective. _Journal of Business Economics_, _91_(5), 655-703. <https://doi.org/10.1007/s11573-021-01035-y>
 - Benhenda, M. (2025). FinRL-DeepSeek: LLM-Infused Risk-Sensitive Reinforcement Learning for Trading Agents. _arXiv_. <https://arxiv.org/abs/2502.07393>
 - Charkhestani, A., & Esfahanipour, A. (2026). Behaviorally informed deep reinforcement learning for portfolio optimization with loss aversion and overconfidence. _Scientific Reports_, _16_(1). <https://doi.org/10.1038/s41598-026-35902-x>
+- Da, Z., Engelberg, J., & Gao, P. (2011). In Search of Attention. _The Journal of Finance_, _66_(5), 1461-1499. <https://doi.org/10.1111/j.1540-6261.2011.01679.x>
 - DeMiguel, V., Garlappi, L., & Uppal, R. (2009). Optimal Versus Naive Diversification: How Inefficient is the 1/N Portfolio Strategy? _Review of Financial Studies_, _22_(5), 1915-1953. <https://doi.org/10.1093/rfs/hhm075>
 - André, E., & Coqueret, G. (2020). Dirichlet policies for reinforced factor portfolios. _arXiv:2011.05381_. <https://arxiv.org/abs/2011.05381>
 - Drobetz, W., Hollstein, F., Prokopczuk, M., & Tharann, B. (2020). Empirical asset pricing via machine learning: evidence from the European stock market. _Journal of Asset Management_. <https://consensus.app/papers/details/2081c13541ba510eb26aaf412408d1e0/>
@@ -104,6 +110,7 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
 - Gunjan, A., & Bhattacharyya, S. (2022). A brief review of portfolio optimization techniques. _Artificial Intelligence Review_, _56_(5), 3847-3886. <https://doi.org/10.1007/s10462-022-10273-7>
 - Fama, E. F., & French, K. R. (2015). A five-factor asset pricing model. _Journal of Financial Economics_, _116_(1), 1-22. <https://doi.org/10.1016/j.jfineco.2014.10.010>
 - He, G., & Litterman, R. (2002). The Intuition Behind Black-Litterman Model Portfolios. _SSRN_. <https://consensus.app/papers/details/4719e06784f95085930da2f2e115adb3/>
+- Heston, S. L., & Sinha, N. R. (2017). News vs. Sentiment: Predicting Stock Returns from News Stories. _Financial Analysts Journal_, _73_(3), 67-83. <https://doi.org/10.2469/faj.v73.n3.3>
 - Jo, Y.-S., et al. (2026). Rethinking Variable Importance in Machine Learning: An Economic Perspective on Empirical Asset Pricing. _Financial Analysts Journal_. <https://consensus.app/papers/details/54b526c659a559cf8f981cd4bf0d38f6/>
 - Kirtac, K., & Germano, G. (2024). Sentiment trading with large language models. _Finance Research Letters_, _62_, 105227. <https://doi.org/10.1016/j.frl.2024.105227>
 - Kirtac, K., & Germano, G. (2025). Large language models in finance: what is financial sentiment? _arXiv:2503.03612_. <https://doi.org/10.48550/arXiv.2503.03612>
@@ -121,6 +128,7 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
 - Rezaei, M., & Nezamabadi-Pour, H. (2025). A taxonomy of literature reviews and experimental study of deep reinforcement learning in portfolio management. _Artificial Intelligence Review_, _58_(3). <https://doi.org/10.1007/s10462-024-11066-w>
 - Schulman, J., Wolski, F., Dhariwal, P., Radford, A., & Klimov, O. (2017). Proximal Policy Optimization Algorithms. _arXiv:1707.06347_. <https://arxiv.org/abs/1707.06347>
 - Sutiene, K., Schwendner, P., Sipos, C., Lorenzo, L., Mirchev, M., Lameski, P., Kabasinskas, A., Tidjani, C., Ozturkkal, B., & Cerneviciene, J. (2024). Enhancing portfolio management using artificial intelligence: Literature review. _Frontiers in Artificial Intelligence_, _7_, 1371502. <https://doi.org/10.3389/frai.2024.1371502>
+- Tetlock, P. C., Saar-Tsechansky, M., & Macskassy, S. (2008). More than Words: Quantifying Language to Measure Firms' Fundamentals. _The Journal of Finance_, _63_(3), 1437-1467. <https://doi.org/10.1111/j.1540-6261.2008.01362.x>
 - Vozlyublennaia, N. (2014). Investor attention, index performance, and return predictability. _Journal of Banking and Finance_, _41_, 17-35. <https://doi.org/10.1016/j.jbankfin.2013.12.010>
 - Wang, Z., Huang, B., Tu, S., Zhang, K., & Xu, L. (2021). DeepTrader: A deep reinforcement learning approach for risk-return balanced portfolio management with market conditions embedding. _Proceedings of the AAAI Conference on Artificial Intelligence_, _35_(1), 643–650. <https://doi.org/10.1609/aaai.v35i1.16144>
 - Xue, P., & Ye, Y. (2025). Attention-enhanced reinforcement learning for dynamic portfolio optimization. _Intelligent Systems with Applications_, _29_, 200622. <https://doi.org/10.1016/j.iswa.2025.200622>

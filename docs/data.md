@@ -46,21 +46,20 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
 
 ## Variables
 
-- for each stock
-  - current passive weight
+- for each stock (model features and calculations: `docs/features.md`)
   - price
     - daily OHLCV
-  - technical (stub; computed from prices; see `docs/features.md`)
-    - `mom12_1`, `rev1m`, `vol`, `turnover`, `size`
-  - fundamental (planned; LSEG; see `docs/features.md`)
-    - `bm`, `sp`, `op`, `agr`, `nsi`
+  - technical (stub; computed from prices)
+    - momentum, volatility, size, short-term reversal, share turnover
+  - fundamental (planned; LSEG)
+    - net share issuance, book-to-market, operating profitability, asset growth, sales-to-price
   - behavioral (LSEG MarketPsych)
-    - attention — `buzz` (media coverage volume, news + social blended)
-    - sentiment — `sentiment` (net polarity)
+    - attention — `buzz` (media coverage volume, news + social blended) → media attention
+    - sentiment — `sentiment` (net polarity) → news sentiment
 - extra assets
   - risk-free - `^IRX` (T-bill annualized yield, not a price)
   - S&P500 stock index - `^GSPC`
-- market-wide indicators
+- market-wide indicators (engine/benchmark inputs, not model features)
   - VIX - `^VIX`
 
 ## Sources
@@ -69,8 +68,8 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
   - LSEG data API — S&P500 constituent list, joiner/leaver history, RIC mapping; market cap via `TR.CompanyMarketCap` (fallback `TR.F.MktCap`) for top-50 selection
   - `build/universe.py` also writes `data/interim/assets.parquet`, the distinct RIC → ticker/name/permid registry used by the price steps
 - price
-  - LSEG data API — daily OHLCV (RTS-adjusted), primary source; per-RIC cache in `data/raw/lseg/prices/`
-  - stale RICs retargeted via `lseg.ric_fallbacks` (KHC.OQ → KHC.N), rows relabelled
+  - LSEG data API — daily OHLCV, primary source; RTS-adjusted (splits, spin-offs) with cash dividends folded in from `TR.TotalReturn`; per-RIC cache in `data/raw/lseg/prices/`
+  - queried by PermID: each company's US consolidated RIC (LSEG symbology), rows labelled with the universe RIC; follows renames (PSKY.OQ → SKYD.K) and carries consolidated volume
   - <https://finance.yahoo.com/> via `yfinance` — fallback for RICs without LSEG content (validated against the universe membership window) and source for the configured `extra_symbols` (`^GSPC`, `^VIX`, `^IRX`); fallback rows land in `prices.parquet`, extras in `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
 - fundamental
   - LSEG data API — planned, not yet implemented (`build/panel.py` is the integration point); quarterly `TR.F.*` fields listed in `docs/features.md`
@@ -97,8 +96,16 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
 - **Retired RICs with no price content**: ENE.N^A02 has no LSEG or Yahoo content and is
   excluded (`universe.exclude_rics`), next-ranked company backfills its 2 quarters (2000Q3/Q4).
   FSR.N^B01 (no content) shares USB.N's PermID, so PermID dedup keeps USB.N instead
-- **Adjustment basis differs across vendors**: LSEG RTS vs Yahoo split/dividend-adjusted
-  (back-adjusted on each dividend); Yahoo rows only fill LSEG gaps
+- **Dividends are derived**: LSEG RTS adjusts splits and spin-offs but not cash dividends
+  (closes equal Yahoo's unadjusted Close). `fetch_history` back-adjusts OHLC by each day's
+  price-return / total-return factor from `TR.TotalReturn`, the basis of Yahoo's auto_adjust;
+  a RIC without `TR.TotalReturn` stays dividend-unadjusted with a warning
+- **Consolidated volume needs consolidated RICs**: exchange RICs (`.N`, `.OQ`) count their own
+  venue only, 25–35% of consolidated volume since 2010; the PermID query returns consolidated
+  RICs (AAPL.O, JNJ). NASDAQ volume before 2004 is not halved for double counting (Gao and
+  Ritter 2010 adjustment; [medhat-2022-short-term-momentum] finds no effect). Ten retired
+  companies whose PermID resolves to a bond or when-issued line fall back to their exchange
+  RIC and keep exchange volume (MER, RAI, S and TWX^F18 after 2007)
 - **Existence-based caches**: reference files and per-RIC/per-symbol price caches are
   skipped when present; use `factor-weaver data fetch --refresh` (optionally per step,
   e.g. `data fetch lseg-constituents --refresh`) instead of deleting files
