@@ -169,17 +169,27 @@ def _normalize(df: pd.DataFrame, titles: dict[str, str]) -> pd.DataFrame:
     return df.dropna(subset=["date", "market_cap"])
 
 
-def resolve_ric(cfg: dict[str, Any], ric: str) -> str:
-    """RIC to query LSEG for content.
+def resolve_permids(ld: Any, permids: list[str]) -> dict[str, str]:
+    """Map company PermIDs to their US consolidated RIC (retired ones keep the ^ suffix).
 
-    Stale/retired universe RICs are mapped by <lseg.ric_fallbacks> to the RIC
-    that carries the same company's content; callers relabel results back.
+    The universe is keyed by PermID, so prices follow renames (PSKY.OQ → SKYD.K), and
+    consolidated RICs carry consolidated volume (exchange RICs count their venue only).
     """
-    return ((cfg.get("lseg") or {}).get("ric_fallbacks") or {}).get(ric, ric)
+    df = ld.discovery.convert_symbols(
+        symbols=permids,
+        from_symbol_type=ld.discovery.SymbolTypes.OA_PERM_ID,
+        to_symbol_types=[ld.discovery.SymbolTypes.RIC],
+        preferred_country_code=ld.discovery.CountryCode.USA,
+    )
+    if df.empty or "RIC" not in df.columns:
+        return {}
+    return {str(k): str(v) for k, v in df["RIC"].dropna().items()}
 
 
-# RTS back-adjusts price and volume for splits and dividends, keeping both series continuous.
+# RTS back-adjusts price and volume for splits and spin-offs but not cash dividends (closes
+# match Yahoo's unadjusted Close); fetch_history folds dividends in from TR.TotalReturn.
 ADJUSTMENTS = "RTS"
+_TR_FIELDS = ["TR.TotalReturn.date", "TR.TotalReturn"]
 _PRICE_FIELDS = ["OPEN_PRC", "HIGH_1", "LOW_1", "TRDPRC_1", "ACVOL_UNS"]
 _PRICE_RENAME = {
     "OPEN_PRC": "open",
@@ -201,13 +211,34 @@ def _normalize_history(df: pd.DataFrame, ric: str) -> pd.DataFrame:
     return df.sort_values(by="date").reset_index(drop=True)
 
 
+def _dividend_adjust(df: pd.DataFrame, total_return: pd.DataFrame) -> pd.DataFrame:
+    """Back-adjust OHLC for cash dividends, as Yahoo's auto_adjust does.
+
+    A day's factor is its price return over its total return: 1 except on distribution
+    days (noise is ~1e-8; spin-off days match because RTS already adjusts them). Each
+    day's prices take the product of all later factors.
+    """
+    tr = pd.Series(
+        total_return["Total Return"].astype(float).to_numpy(),
+        index=pd.to_datetime(total_return["Date"]).dt.normalize(),
+    )
+    tr = tr.loc[~tr.index.duplicated(keep="last")]  # retired RICs repeat rows past delisting
+    gross = 1 + tr.reindex(df["date"].dt.normalize()).to_numpy() / 100
+    factor = pd.Series(df["close"].div(df["close"].shift(1)).to_numpy() / gross)
+    factor = factor.where(factor < 1 - 1e-6, 1.0)  # a distribution only lowers the factor
+    later = factor.iloc[::-1].cumprod().iloc[::-1].shift(-1, fill_value=1.0)
+    cols = ["open", "high", "low", "close"]
+    df[cols] = df[cols].mul(later.to_numpy(), axis=0)
+    return df
+
+
 def fetch_history(ld: Any, ric: str, start: str, end: str) -> pd.DataFrame:
-    """Fetch adjusted daily OHLCV for one RIC over the whole period.
+    """Fetch split-, spin-off- and dividend-adjusted daily OHLCV for one RIC.
 
     Returns the canonical (date, ric, open..volume) frame, empty when the RIC
     has no data. Retired ^-suffixed RICs remain resolvable.
     """
-    return _normalize_history(
+    df = _normalize_history(
         ld.get_history(
             universe=ric,
             fields=_PRICE_FIELDS,
@@ -218,6 +249,17 @@ def fetch_history(ld: Any, ric: str, start: str, end: str) -> pd.DataFrame:
         ),
         ric,
     )
+    if df.empty:
+        return df
+    tr = ld.get_data(
+        universe=[ric],
+        fields=_TR_FIELDS,
+        parameters={"SDate": _api_date(start), "EDate": _api_date(end), "Frq": "D"},
+    )
+    if tr.empty:
+        log.warning("%s: no TR.TotalReturn; prices stay dividend-unadjusted", ric)
+        return df
+    return _dividend_adjust(df, tr)
 
 
 def fetch_market_cap(cfg: dict[str, Any]) -> None:

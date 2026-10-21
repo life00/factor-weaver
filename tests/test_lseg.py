@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from factor_weaver.data.fetch.lseg import _normalize_history, fetch_history, resolve_ric
+from factor_weaver.data.fetch.lseg import _dividend_adjust, _normalize_history, fetch_history
 
 _FIELDS = {
     "OPEN_PRC": [1.0, 2.0],
@@ -49,17 +49,13 @@ class _FakeLD:
             raise RuntimeError(f"{universe}: no data")
         return self.frames[universe]
 
+    def get_data(self, universe, **kwargs):
+        return pd.DataFrame()  # no TR.TotalReturn → prices stay unadjusted
+
 
 def _one_day_frame():
     idx = pd.DatetimeIndex(pd.to_datetime(["2020-01-02"], utc=True), name="Date")
     return pd.DataFrame({k: [1.0] for k in _FIELDS}, index=idx)
-
-
-def test_resolve_ric_uses_fallback_only_when_mapped():
-    cfg = {"lseg": {"ric_fallbacks": {"KHC.OQ": "KHC.N"}}}
-    assert resolve_ric(cfg, "KHC.OQ") == "KHC.N"
-    assert resolve_ric(cfg, "AAPL.O") == "AAPL.O"
-    assert resolve_ric({}, "AAPL.O") == "AAPL.O"
 
 
 def test_fetch_history_queries_retired_rics_and_normalizes():
@@ -68,3 +64,17 @@ def test_fetch_history_queries_retired_rics_and_normalizes():
     assert ld.calls == ["TWX.N^A01"]
     assert not out.empty
     assert set(out["ric"]) == {"TWX.N^A01"}
+
+
+def test_dividend_adjust_back_adjusts_before_ex_date_only():
+    # 0.50 dividend goes ex on day 2: price return 9.5/10, total return 0%
+    dates = pd.to_datetime(["2020-01-02", "2020-01-03", "2020-01-06"])
+    df = pd.DataFrame(
+        {"date": dates, "ric": "X.N", "open": [10.0, 9.5, 9.5], "high": [10.0, 9.5, 9.7],
+         "low": [10.0, 9.5, 9.5], "close": [10.0, 9.5, 9.6], "volume": [1, 2, 3]}
+    )
+    tr = pd.DataFrame({"Date": dates.strftime("%Y-%m-%d"), "Total Return": [None, 0.0, 1.0526316]})
+    out = _dividend_adjust(df, tr)
+    assert out["close"].round(6).tolist() == [9.5, 9.5, 9.6]  # day 1 scaled by 0.95
+    assert out["open"].round(6).tolist() == [9.5, 9.5, 9.5]
+    assert out["volume"].tolist() == [1, 2, 3]

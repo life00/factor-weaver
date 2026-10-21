@@ -13,7 +13,7 @@ import pandas as pd
 
 from factor_weaver.data import store
 from factor_weaver.data.fetch import yahoo
-from factor_weaver.data.fetch.lseg import fetch_history, resolve_ric, session
+from factor_weaver.data.fetch.lseg import fetch_history, resolve_permids, session
 
 log = logging.getLogger(__name__)
 
@@ -32,17 +32,15 @@ def _attempt(fn: Any) -> tuple[pd.DataFrame, str | None]:
 
 
 def _try_lseg(
-    ld: Any, ric: str, fallback: str | None, start: str, end: str
+    ld: Any, ric: str, query: str, start: str, end: str
 ) -> tuple[pd.DataFrame, str | None]:
-    """Fetch ric from LSEG; on failure retry under fallback and relabel rows."""
-    df, err = _attempt(lambda: fetch_history(ld, ric, start, end))
-    if err is None:
-        return df, None
-    if fallback is None:
+    """Fetch the PermID-resolved query RIC, else the universe RIC; rows keep the universe label."""
+    df, err = _attempt(lambda: fetch_history(ld, query, start, end))
+    if err is not None and query != ric:  # retired PermIDs can resolve to bonds/when-issued lines
+        df, ric_err = _attempt(lambda: fetch_history(ld, ric, start, end))
+        err = None if ric_err is None else f"{query}: {err}; {ric}: {ric_err}"
+    if err is not None:
         return pd.DataFrame(), err
-    df, fb_err = _attempt(lambda: fetch_history(ld, fallback, start, end))
-    if fb_err is not None:
-        return pd.DataFrame(), f"{err}; fallback {fallback}: {fb_err}"
     df["ric"] = ric
     return df, None
 
@@ -60,7 +58,7 @@ def _is_refresh(cfg: dict[str, Any]) -> bool:
 
 
 def fetch_lseg_prices(cfg: dict[str, Any]) -> None:
-    """Cache daily OHLCV for every registry RIC from LSEG (ric_fallbacks applied).
+    """Cache daily OHLCV for every registry company from LSEG, queried by PermID.
 
     Reads: <universe.assets_out>
     Writes: per-RIC cache under <lseg.prices_out>
@@ -70,7 +68,7 @@ def fetch_lseg_prices(cfg: dict[str, Any]) -> None:
     start, end = cfg["universe"]["start"], cfg["universe"]["end"]
     refresh = _is_refresh(cfg)
 
-    pending: list[tuple[str, Path]] = []
+    pending: list[tuple[str, str, Path]] = []
     cached = 0
     for row in assets.to_dict("records"):
         ric = str(row["ric"])
@@ -79,7 +77,7 @@ def fetch_lseg_prices(cfg: dict[str, Any]) -> None:
             cached += 1
             log.debug("  %s: cached", ric)
         else:
-            pending.append((ric, path))
+            pending.append((ric, str(row["permid"]), path))
 
     fetched = 0
     failures: list[tuple[str, str]] = []
@@ -88,9 +86,9 @@ def fetch_lseg_prices(cfg: dict[str, Any]) -> None:
 
         ld.get_config().set_param("http.request-timeout", 300)  # default 20s too short for 30y
         with session() as ld:
-            for ric, path in pending:
-                fallback = resolve_ric(cfg, ric)
-                df, err = _try_lseg(ld, ric, fallback if fallback != ric else None, start, end)
+            query = resolve_permids(ld, sorted({permid for _, permid, _ in pending}))
+            for ric, permid, path in pending:
+                df, err = _try_lseg(ld, ric, query.get(permid, ric), start, end)
                 if err is None:
                     if len(df) >= 10000:
                         log.warning("%s: hit the 10,000-row request ceiling", ric)

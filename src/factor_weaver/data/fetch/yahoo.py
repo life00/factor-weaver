@@ -46,7 +46,7 @@ def _fetch_symbol(symbol: str, start: str, end: str) -> pd.DataFrame:
             start=str(start),
             end=end_exclusive,
             interval="1d",
-            auto_adjust=True,  # split+dividend adjusted, closest to LSEG RTS
+            auto_adjust=True,  # split+dividend adjusted, same basis as the LSEG prices
             actions=False,
         )
     except Exception as e:  # yfinance raises on network/parse problems

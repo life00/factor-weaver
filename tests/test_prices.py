@@ -25,6 +25,9 @@ class _FakeLD:
             raise RuntimeError(f"{universe}: no data")
         return self.frames[universe]
 
+    def get_data(self, universe, **kwargs):
+        return pd.DataFrame()  # no TR.TotalReturn → prices stay unadjusted
+
 
 def _one_day_frame():
     idx = pd.DatetimeIndex(pd.to_datetime(["2020-01-02"], utc=True), name="Date")
@@ -52,17 +55,19 @@ def test_attempt_reports_errors_and_empty():
     assert err is None and len(df) == 1
 
 
-def test_try_lseg_relabels_fallback_and_reports_errors():
+def test_try_lseg_relabels_query_ric_and_reports_errors():
     df, err = _try_lseg(
-        _FakeLD({"ALT.N": _one_day_frame()}), "OLD.N", "ALT.N", "2020-01-01", "2020-02-01"
+        _FakeLD({"NEW.K": _one_day_frame()}), "OLD.N", "NEW.K", "2020-01-01", "2020-02-01"
     )
     assert err is None and set(df["ric"]) == {"OLD.N"}
 
-    df, err = _try_lseg(_FakeLD({}), "OLD.N", None, "2020-01-01", "2020-02-01")
-    assert df.empty and err is not None
+    df, err = _try_lseg(
+        _FakeLD({"OLD.N": _one_day_frame()}), "OLD.N", "BOND=ARCA", "2020-01-01", "2020-02-01"
+    )
+    assert err is None and set(df["ric"]) == {"OLD.N"}  # bad resolution → universe RIC
 
-    df, err = _try_lseg(_FakeLD({}), "OLD.N", "ALT.N", "2020-01-01", "2020-02-01")
-    assert df.empty and err is not None and "fallback ALT.N" in err
+    df, err = _try_lseg(_FakeLD({}), "OLD.N", "NEW.K", "2020-01-01", "2020-02-01")
+    assert df.empty and err is not None and "NEW.K" in err and "OLD.N" in err
 
 
 def test_covers_membership_window():

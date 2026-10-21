@@ -5,8 +5,6 @@ lseg:
   mapping_out: data/raw/lseg/ric_mapping.parquet
   market_cap_out: data/raw/lseg/market_cap.parquet
   prices_out: data/raw/lseg/prices
-  ric_fallbacks: # in case content lives under another RIC
-    KHC.OQ: KHC.N # same company (Kraft Heinz
 
 yahoo:
   prices_out: data/raw/yahoo/prices
