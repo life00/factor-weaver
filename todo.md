@@ -15,6 +15,8 @@
   - [ ] complete panel data file (date, ric, *features)
   - [ ] perform data check and cleanup (if necessary): missing values, errors (outliers)
   - [ ] exploratory data analysis: basic descriptive statistics, correlation, and standardization of variables
+  - [ ] technical + fundamental features: reduce frequency
+  - [ ] train/test split: research the literature on optimal split strategy
 - workflow
   - [x] refactor cli workflow logic to be more consistent (fetch/build split, manifest + caching)
   - [x] standardize logging across the whole project
