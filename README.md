@@ -16,7 +16,7 @@ flowchart LR
 
 ## Status
 
-- Implemented: data pipeline through prices (LSEG universe/prices, Yahoo index/yield series), config, CLI and workflows (`data`, `report`), tests.
+- Implemented: data pipeline through prices and fundamentals (fetch only) (LSEG universe/prices/fundamentals, Yahoo index/yield series), config, CLI and workflows (`data`, `report`), tests.
 - Stubbed: technicals, panel, split; all models; shared backtest engine; `train` and `eval`.
 
 ## Tech stack

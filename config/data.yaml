@@ -5,6 +5,7 @@ lseg:
   mapping_out: data/raw/lseg/ric_mapping.parquet
   market_cap_out: data/raw/lseg/market_cap.parquet
   prices_out: data/raw/lseg/prices
+  fundamentals_out: data/raw/lseg/fundamentals
 
 yahoo:
   prices_out: data/raw/yahoo/prices

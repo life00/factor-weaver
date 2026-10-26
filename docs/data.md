@@ -52,7 +52,7 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
     - daily OHLCV
   - technical (stub; computed from prices)
     - momentum, volatility, size, short-term reversal, share turnover
-  - fundamental (planned; LSEG)
+  - fundamental (raw fetch implemented; LSEG)
     - net share issuance, book-to-market, operating profitability, asset growth, sales-to-price
   - behavioral (LSEG MarketPsych)
     - attention — `buzz` (media coverage volume, news + social blended) → media attention
@@ -73,7 +73,7 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
   - PermID-resolved, universe share line: each company's US consolidated RIC (LSEG symbology) when it is the universe line (KO.N → KO), else the universe RIC; the other is the fallback (renames: PSKY.OQ → SKYD.K); a series must cover the membership window; rows labelled with the universe RIC
   - <https://finance.yahoo.com/> via `yfinance` — only the configured `extra_symbols` (`^GSPC`, `^VIX`, `^IRX`), never universe stocks; `extra-prices` build step writes them to `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
 - fundamental
-  - LSEG data API — planned, not yet implemented (`build/panel.py` is the integration point); quarterly `TR.F.*` fields listed in `docs/features.md`
+  - LSEG data API — quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one parquet per RIC, USD, statement-level source and original announcement dates); `build/panel.py` integration not implemented
 - technical
   - computed from prices (`docs/features.md`); `build/technicals.py` is a stub
 - behavioral

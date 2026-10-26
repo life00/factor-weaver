@@ -84,6 +84,14 @@ STEPS: tuple[Step, ...] = (
         per_item=True,
     ),
     Step(
+        "lseg-fundamentals",
+        lseg.fetch_fundamentals,
+        "fetch",
+        ins=("universe.assets_out",),
+        outs=("lseg.fundamentals_out",),
+        per_item=True,
+    ),
+    Step(
         "yahoo-prices",
         yahoo.fetch_yahoo_prices,
         "fetch",

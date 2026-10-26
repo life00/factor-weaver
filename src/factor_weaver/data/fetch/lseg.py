@@ -11,7 +11,7 @@ import os
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, cast
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -44,6 +44,53 @@ _MC_FALLBACK_FIELDS = ["TR.F.MktCap.date", "TR.F.MktCap"]
 _MC_TITLES = {"Date": "date", "Company Market Cap": "market_cap"}
 _MC_FALLBACK_TITLES = {"Date": "date", "Market Capitalization": "market_cap"}
 _MC_CHUNK = 250  # ponytail: keeps each datagrid call well under the 300s server timeout
+
+# Raw quarterly fundamentals, one request per statement so the statement-level source
+# date and original announcement date stay attached to the right fields.
+_FUND_IS_FIELDS = [
+    "TR.F.TotRevenue",
+    "TR.F.COGSTot",
+    "TR.F.SGATot",
+    "TR.F.IntrExpn",
+]
+_FUND_BS_FIELDS = [
+    "TR.F.ShHoldEqCom",
+    "TR.F.TotAssets",
+    "TR.F.ComShrOutsTot",
+]
+_FUND_META_FIELDS = [
+    "TR.F.PeriodEndDate",
+    "TR.F.SourceDate",
+    "TR.F.SourceDate.FundUpdType",
+    "TR.F.SourceDate.stType",
+]
+_FUND_SUFFIXES = ("", ".date", ".calcdate", ".fperiod")
+
+_FUND_OUT_COLS = [
+    "ric",
+    "field",
+    "value",
+    "date",
+    "period_end",
+    "fiscal_period",
+    "source_date",
+    "calc_date",
+    "fund_upd_type",
+    "statement_type",
+    "original_announcement_date",
+]
+_FUND_COLUMNS = pd.Index(_FUND_OUT_COLS)
+
+_FUND_IS_REQUEST = [
+    f"{field}{suffix}"
+    for field in _FUND_IS_FIELDS
+    for suffix in _FUND_SUFFIXES
+] + _FUND_META_FIELDS + ["TR.ISOriginalAnnouncementDate"]
+_FUND_BS_REQUEST = [
+    f"{field}{suffix}"
+    for field in _FUND_BS_FIELDS
+    for suffix in _FUND_SUFFIXES
+] + _FUND_META_FIELDS + ["TR.BSOriginalAnnouncementDate"]
 
 
 def _api_date(value: str | date) -> str:
@@ -425,3 +472,219 @@ def fetch_market_cap(cfg: dict[str, Any]) -> None:
     df = df.drop_duplicates(subset=["ric", "date"])
     store.write_parquet(df, out)
     log.info("wrote %s (%d rows)", out, len(df))
+
+
+def _col(df: pd.DataFrame, name: str) -> str | None:
+    """Case-insensitive column lookup; None when the API dropped the field."""
+    target = name.strip().upper()
+    return next((str(c) for c in df.columns if str(c).strip().upper() == target), None)
+
+
+def _dates(series: pd.Series) -> pd.Series:
+    """Parse LSEG date/date-time strings to naive UTC timestamps."""
+    return pd.to_datetime(series, errors="coerce", utc=True).dt.tz_convert(None)
+
+
+def _fund_columns(df: pd.DataFrame, fields: list[str]) -> pd.DataFrame:
+    """Restore requested names: NAME headers repeat the base field for each suffix column."""
+    buckets: dict[str, list[int]] = {}
+    for i, col in enumerate(df.columns):
+        buckets.setdefault(str(col).strip().upper(), []).append(i)
+    columns = [str(c) for c in df.columns]
+    for field in fields:
+        base = ".".join(field.split(".")[:3]).upper()
+        positions = buckets.get(base)
+        if positions:
+            columns[positions.pop(0)] = field
+    return df.set_axis(pd.Index(columns), axis=1)
+
+
+def _normalize_fundamentals(
+    df: pd.DataFrame, ric: str, fields: list[str], announcement_col: str, statement: str
+) -> pd.DataFrame:
+    """Long (ric, field, value, date, metadata) rows from one statement response."""
+    if df.empty:
+        return pd.DataFrame(columns=_FUND_COLUMNS)
+
+    def text(name: str) -> pd.Series:
+        col = _col(df, name)
+        if col is None:
+            return pd.Series(pd.NA, index=df.index, dtype="string")
+        return cast(pd.Series, df[col]).astype("string")
+
+    def days(name: str) -> pd.Series:
+        col = _col(df, name)
+        return _dates(cast(pd.Series, df[col])) if col else pd.Series(pd.NaT, index=df.index)
+
+    period_end = days("TR.F.PeriodEndDate")
+    source_date = days("TR.F.SourceDate")
+    fund_upd_type = text("TR.F.SourceDate.FundUpdType")
+    statement_type = text("TR.F.SourceDate.stType").fillna(statement)
+    announcement = days(announcement_col)
+
+    frames: list[pd.DataFrame] = []
+    for field in fields:
+        value_col = _col(df, field)
+        if value_col is None:
+            log.warning("%s: field %s not returned; skipped", ric, field)
+            continue
+        value = cast(pd.Series, pd.to_numeric(df[value_col], errors="coerce"))
+        if value.notna().sum() == 0:
+            continue
+        frames.append(
+            pd.DataFrame(
+                {
+                    "ric": ric,
+                    "field": field,
+                    "value": value,
+                    "date": days(f"{field}.date").fillna(period_end),
+                    "period_end": period_end,
+                    "fiscal_period": text(f"{field}.fperiod"),
+                    "source_date": source_date,
+                    "calc_date": days(f"{field}.calcdate"),
+                    "fund_upd_type": fund_upd_type,
+                    "statement_type": statement_type,
+                    "original_announcement_date": announcement,
+                },
+                index=df.index,
+            )
+        )
+    if not frames:
+        return pd.DataFrame(columns=_FUND_COLUMNS)
+    out = pd.concat(frames, ignore_index=True)
+    out = out.dropna(subset=["value", "date"]).drop_duplicates()
+    return (
+        out.sort_values(["date", "field"])
+        .reindex(columns=_FUND_COLUMNS)
+        .reset_index(drop=True)
+    )
+
+
+def _fund_params(
+    start: str, end: str, reporting_state: str = "Orig", consolidated: bool = True
+) -> dict[str, str]:
+    params = {
+        "SDATE": _api_date(start),
+        "EDATE": _api_date(end),
+        "Period": "FQ0",
+        "Frq": "FQ",
+        "ReportingState": reporting_state,
+        "Curn": "USD",
+        "FXRate": "PeriodEnd",
+        "Scale": "0",
+    }
+    if consolidated:
+        params["ConsolBasis"] = "Consolidated"
+    return params
+
+
+def _fetch_statement(ld: Any, ric: str, start: str, end: str, fields: list[str]) -> pd.DataFrame:
+    """Fetch one statement, preferring Orig, then falling back to All."""
+    last: Exception | None = None
+    for reporting_state, consolidated in (
+        ("Orig", True),
+        ("Orig", False),
+        ("All", True),
+        ("All", False),
+    ):
+        try:
+            df = ld.get_data(
+                universe=[ric],
+                fields=fields,
+                parameters=_fund_params(start, end, reporting_state, consolidated),
+                header_type=ld.HeaderType.NAME,
+            )
+        except Exception as e:
+            last = e
+            continue
+        if not df.empty:
+            return _fund_columns(df, fields)
+        last = RuntimeError("empty response")
+    if last is None:
+        raise RuntimeError("empty response")
+    raise last
+
+
+def _try_fundamentals(
+    ld: Any, ric: str, candidates: list[str], start: str, end: str
+) -> tuple[pd.DataFrame, str | None]:
+    """Fetch both statements for the first candidate RIC that answers."""
+    errors: list[str] = []
+    for candidate in dict.fromkeys(candidates):
+        is_df, is_err = _attempt(
+            lambda: _fetch_statement(ld, candidate, start, end, _FUND_IS_REQUEST)
+        )
+        bs_df, bs_err = _attempt(
+            lambda: _fetch_statement(ld, candidate, start, end, _FUND_BS_REQUEST)
+        )
+        if is_err is None and bs_err is None:
+            df = pd.concat(
+                [
+                    _normalize_fundamentals(
+                        is_df, ric, _FUND_IS_FIELDS, "TR.ISOriginalAnnouncementDate", "is"
+                    ),
+                    _normalize_fundamentals(
+                        bs_df, ric, _FUND_BS_FIELDS, "TR.BSOriginalAnnouncementDate", "bs"
+                    ),
+                ]
+            )
+            df = df.sort_values(["date", "field"]).reindex(columns=_FUND_COLUMNS)
+            return df.reset_index(drop=True), None
+        errors.append(f"{candidate}: IS {is_err or 'ok'}; BS {bs_err or 'ok'}")
+    return pd.DataFrame(columns=_FUND_COLUMNS), "; ".join(errors)
+
+
+def fetch_fundamentals(cfg: dict[str, Any]) -> None:
+    """Cache raw quarterly fundamentals per universe RIC (statement-level metadata).
+
+    Reads: <universe.assets_out>
+    Writes: per-RIC cache under <lseg.fundamentals_out>
+    """
+    assets_path = Path(cfg["universe"]["assets_out"])
+    if not assets_path.exists():
+        raise FileNotFoundError(f"run the universe step first; missing: {assets_path}")
+    assets = pd.read_parquet(assets_path)
+    cache_dir = Path(cfg["lseg"]["fundamentals_out"])
+    start, end = cfg["lseg"]["start"], cfg["universe"]["end"]
+    refresh = bool(cfg.get("_refresh"))
+
+    pending: list[tuple[str, str, Path]] = []
+    cached = 0
+    for row in assets.to_dict("records"):
+        ric = str(row["ric"])
+        path = store.cache_path(cache_dir, ric, url_quote=True)
+        if path.exists() and not refresh:
+            cached += 1
+            log.debug("  %s: cached", ric)
+        else:
+            pending.append((ric, str(row["permid"]), path))
+
+    fetched = 0
+    failures: list[tuple[str, str]] = []
+    if pending:  # no session/credentials needed when every RIC is cached
+        with session() as ld:
+            ld.get_config().set_param("http.request-timeout", 300)
+            query = resolve_permids(ld, sorted({p[1] for p in pending}))
+            for ric, permid, path in pending:
+                resolved = query.get(permid)
+                candidates = [ric, resolved] if resolved and resolved != ric else [ric]
+                df, err = _try_fundamentals(ld, ric, candidates, start, end)
+                if err is not None:
+                    failures.append((ric, err))
+                    log.debug("  %s: failed (%s)", ric, err)
+                    continue
+                store.write_parquet(df, path)
+                fetched += 1
+                log.debug("  %s: %d fundamental rows", ric, len(df))
+
+    log.info(
+        "lseg-fundamentals: %d cached, %d fetched, %d failed (%d rics)",
+        cached,
+        fetched,
+        len(failures),
+        len(assets),
+    )
+    for ric, err in failures:
+        log.warning("  %s: %s", ric, err)
+    if cached + fetched == 0 and len(assets):
+        raise RuntimeError(f"no LSEG fundamental data fetched; failures: {failures}")
