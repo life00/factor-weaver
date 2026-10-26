@@ -62,7 +62,6 @@ _FUND_META_FIELDS = [
     "TR.F.PeriodEndDate",
     "TR.F.SourceDate",
     "TR.F.SourceDate.FundUpdType",
-    "TR.F.SourceDate.stType",
 ]
 _FUND_SUFFIXES = ("", ".date", ".calcdate", ".fperiod")
 
@@ -517,9 +516,11 @@ def _normalize_fundamentals(
         return _dates(cast(pd.Series, df[col])) if col else pd.Series(pd.NaT, index=df.index)
 
     period_end = days("TR.F.PeriodEndDate")
+    if isinstance(df.index, pd.DatetimeIndex):
+        # The date row header carries the period date when LSEG omits PeriodEndDate.
+        period_end = period_end.fillna(pd.Series(df.index, index=df.index))
     source_date = days("TR.F.SourceDate")
     fund_upd_type = text("TR.F.SourceDate.FundUpdType")
-    statement_type = text("TR.F.SourceDate.stType").fillna(statement)
     announcement = days(announcement_col)
 
     frames: list[pd.DataFrame] = []
@@ -543,7 +544,7 @@ def _normalize_fundamentals(
                     "source_date": source_date,
                     "calc_date": days(f"{field}.calcdate"),
                     "fund_upd_type": fund_upd_type,
-                    "statement_type": statement_type,
+                    "statement_type": statement,
                     "original_announcement_date": announcement,
                 },
                 index=df.index,
@@ -579,7 +580,13 @@ def _fund_params(
 
 
 def _fetch_statement(ld: Any, ric: str, start: str, end: str, fields: list[str]) -> pd.DataFrame:
-    """Fetch one statement, preferring Orig, then falling back to All."""
+    """Fetch one statement, preferring Orig, then falling back to All.
+
+    The date row header keeps the response date-indexed. The default flat layout
+    concatenates field series positionally, so a series with different coverage
+    (e.g. no announcement date for early quarters) shifts later columns by a row.
+    """
+    fr = ld.content.fundamental_and_reference
     last: Exception | None = None
     for reporting_state, consolidated in (
         ("Orig", True),
@@ -588,12 +595,16 @@ def _fetch_statement(ld: Any, ric: str, start: str, end: str, fields: list[str])
         ("All", False),
     ):
         try:
-            df = ld.get_data(
-                universe=[ric],
-                fields=fields,
+            response = fr.Definition(
+                [ric],
+                fields,
                 parameters=_fund_params(start, end, reporting_state, consolidated),
+                row_headers=[fr.RowHeaders.DATE],
                 header_type=ld.HeaderType.NAME,
-            )
+            ).get_data()
+            if not response.is_success:
+                raise RuntimeError(f"request failed: {response.errors}")
+            df = response.data.df
         except Exception as e:
             last = e
             continue
@@ -629,7 +640,11 @@ def _try_fundamentals(
                 ]
             )
             df = df.sort_values(["date", "field"]).reindex(columns=_FUND_COLUMNS)
-            return df.reset_index(drop=True), None
+            df = df.reset_index(drop=True)
+            if df.empty:
+                errors.append(f"{candidate}: no values")
+                continue
+            return df, None
         errors.append(f"{candidate}: IS {is_err or 'ok'}; BS {bs_err or 'ok'}")
     return pd.DataFrame(columns=_FUND_COLUMNS), "; ".join(errors)
 
