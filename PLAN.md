@@ -33,7 +33,7 @@ Equivalence guarantees — the central design decision:
 ## 2. Prerequisites (data phase — separate work)
 
 1. Panel file (`panel.out` in `config/data.yaml`, `data/processed/panel.parquet`):
-   long-tidy `(date, ric, *features)` for all universe members 1994–2026 —
+   long-tidy `(date, ric, *features)` for all universe members 1998–2026 —
    technical, fundamental (LSEG, report-date-anchored forward-fill), behavioral
    (MarketPsych, time-decayed) — strictly no look-ahead.
 2. `data/interim/extra_prices.parquet`: `^GSPC`, `^VIX` + add `^IRX` to

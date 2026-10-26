@@ -652,7 +652,7 @@ def _try_fundamentals(
 def fetch_fundamentals(cfg: dict[str, Any]) -> None:
     """Cache raw quarterly fundamentals per universe RIC (statement-level metadata).
 
-    Reads: <universe.assets_out>
+    Reads: <universe.assets_out>; window <universe.start>..<universe.end> (as prices)
     Writes: per-RIC cache under <lseg.fundamentals_out>
     """
     assets_path = Path(cfg["universe"]["assets_out"])
@@ -660,7 +660,7 @@ def fetch_fundamentals(cfg: dict[str, Any]) -> None:
         raise FileNotFoundError(f"run the universe step first; missing: {assets_path}")
     assets = pd.read_parquet(assets_path)
     cache_dir = Path(cfg["lseg"]["fundamentals_out"])
-    start, end = cfg["lseg"]["start"], cfg["universe"]["end"]
+    start, end = cfg["universe"]["start"], cfg["universe"]["end"]
     refresh = bool(cfg.get("_refresh"))
 
     pending: list[tuple[str, str, Path]] = []

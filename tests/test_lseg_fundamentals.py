@@ -99,8 +99,8 @@ def _cfg(tmp_path):
     assets = tmp_path / "assets.parquet"
     pd.DataFrame({"ric": ["AAPL.O"], "permid": ["4295904307"]}).to_parquet(assets, index=False)
     return {
-        "universe": {"assets_out": str(assets), "end": "2020-12-31"},
-        "lseg": {"start": "1994-01-01", "fundamentals_out": str(tmp_path / "fund")},
+        "universe": {"assets_out": str(assets), "start": "2020-01-01", "end": "2020-12-31"},
+        "lseg": {"fundamentals_out": str(tmp_path / "fund")},
     }
 
 

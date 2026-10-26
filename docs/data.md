@@ -8,9 +8,9 @@
 - frequency
   - daily
 - period
-  - 1994-2026 (universe build starts 1994, when LSEG joiner/leaver records begin)
+  - 1998-2026 (first universe snapshot 1997-12-31; behavioral data starts 1998)
 - index
-  - all S&P500 companies since 1994
+  - all S&P500 companies (joiner/leaver history since 1994)
 - method
   - rolling top 50 companies in S&P500
   - redefine list in each period
@@ -116,5 +116,4 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
 ### Behavioral
 
 - **Sparse rows are intentional**: companies only have rows on non-zero-buzz days, so
-  `behavioral.parquet` has no row for a day without media coverage; 1994-1997 is empty by
-  construction (history starts 1998-01)
+  `behavioral.parquet` has no row for a day without media coverage; history starts 1998-01

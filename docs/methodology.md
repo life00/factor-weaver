@@ -3,7 +3,7 @@
 ## Environment
 
 - total data
-  - ~1994-2026 daily (universe build starts 1994, see `config/data.yaml`)
+  - ~1998-2026 daily (universe start 1997-12-31, see `config/data.yaml`)
   - $250 \times 32 \approx 8000$ steps
 - initial state
   - in $t=0$ everything is in risk-free
