@@ -58,7 +58,7 @@ tests/                # pytest checks (universe/prices tests synthetic)
 ## Dependencies
 
 - S&P500 constituent list, joiner/leaver history (since 1994), RIC mapping, and market cap (`TR.CompanyMarketCap`, fallback `TR.F.MktCap`): fetched from LSEG data API, cached in `data/raw/lseg/`; used for top-50 universe selection.
-- Price data: LSEG data API daily OHLCV for every universe stock (per-RIC cache in `data/raw/lseg/prices/`; no fallback source); Yahoo Finance (`yfinance`) only for the extra index/yield series in `yahoo.extra_symbols` (per-symbol cache in `data/raw/yahoo/prices/`).
+- Price data: LSEG data API daily OHLCV for every universe stock (per-RIC cache in `data/raw/lseg/prices/`, from `lseg.start` for lookback; no fallback source); Yahoo Finance (`yfinance`) only for the extra index/yield series in `yahoo.extra_symbols` (per-symbol cache in `data/raw/yahoo/prices/`).
 - Fundamentals: LSEG data API quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one long parquet per RIC, as originally reported, USD, from `lseg.start` for lookback; availability = `source_date`); `panel` build integration not implemented.
 - Behavioral: planned from MarketPsych (not yet implemented).
 - Benchmarks/evaluation (per `docs/models.md`): scikit-learn (GBRT, Ledoit–Wolf), PyPortfolioOpt (tangency optimizer), mlflow (tracking) — declared in `pyproject.toml`; risk-free via `^IRX` (yield series, not a price).
