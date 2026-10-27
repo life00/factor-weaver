@@ -92,6 +92,9 @@ def test_covers_membership_window():
     df = pd.DataFrame({"date": pd.to_datetime(["2020-01-02", "2020-01-10"])})
     assert _covers(df, pd.Timestamp("2020-01-02"), pd.Timestamp("2020-01-10"))
     assert _covers(df, pd.Timestamp("2020-01-05"), pd.Timestamp("2020-01-07"))
+    assert _covers(df, pd.Timestamp("2020-01-02"), pd.Timestamp("2020-01-12"))  # bar pre-weekend
+    assert _covers(df, pd.Timestamp("2020-01-02"), pd.Timestamp("2020-01-17"))  # 7-day tolerance
+    assert not _covers(df, pd.Timestamp("2020-01-02"), pd.Timestamp("2020-01-18"))
     assert not _covers(df, pd.Timestamp("2020-01-01"), pd.Timestamp("2020-01-10"))
     assert not _covers(df, pd.Timestamp("2020-01-02"), pd.Timestamp("2020-06-30"))
     assert not _covers(

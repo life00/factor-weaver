@@ -324,8 +324,16 @@ def _same_line(a: str, b: str) -> bool:
 
 
 def _covers(df: pd.DataFrame, first: Any, last: Any) -> bool:
-    """True when a series spans the RIC's universe membership window."""
-    return not df.empty and df["date"].min() <= first and df["date"].max() >= last
+    """True when a series spans the RIC's universe membership window.
+
+    Quarter-ends are calendar dates, so the last bar can precede `last` by a weekend or
+    holiday (BLS.N^A07 ends 2006-12-29 for the 2006-12-31 window); allow a week.
+    """
+    return (
+        not df.empty
+        and df["date"].min() <= first
+        and df["date"].max() >= last - pd.DateOffset(days=7)
+    )
 
 
 def _try_lseg(
