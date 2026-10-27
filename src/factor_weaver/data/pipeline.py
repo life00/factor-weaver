@@ -15,7 +15,14 @@ from typing import Any, Callable, Literal
 
 from rich.text import Text
 
-from factor_weaver.data.build import behavioral, panel, split, technicals, universe
+from factor_weaver.data.build import (
+    behavioral,
+    fundamental,
+    panel,
+    split,
+    technical,
+    universe,
+)
 from factor_weaver.data.build import prices as build_prices
 from factor_weaver.data.fetch import lseg, marketpsych, yahoo
 from factor_weaver.output import out
@@ -128,17 +135,34 @@ STEPS: tuple[Step, ...] = (
         outs=("marketpsych.out",),
     ),
     Step(
-        "technicals",
-        technicals.compute_technicals,
+        "fundamental",
+        fundamental.build_fundamental,
         "build",
-        ins=("prices.out",),
-        outs=("technicals.out",),
+        ins=(
+            "prices.out",
+            "universe.assets_out",
+            "lseg.market_cap_out",
+            "lseg.fundamentals_out",
+        ),
+        outs=("fundamental.out",),
+    ),
+    Step(
+        "technical",
+        technical.build_technical,
+        "build",
+        ins=(
+            "prices.out",
+            "universe.assets_out",
+            "lseg.market_cap_out",
+            "lseg.fundamentals_out",
+        ),
+        outs=("technical.out",),
     ),
     Step(
         "panel",
         panel.build_panel,
         "build",
-        ins=("prices.out", "technicals.out"),
+        ins=("prices.out", "technical.out", "fundamental.out", "marketpsych.out"),
         outs=("panel.out",),
     ),
     Step(

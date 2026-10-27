@@ -1,4 +1,4 @@
-"""Assemble the long-tidy panel: prices, technicals, fundamentals, behavior."""
+"""Assemble the long-tidy panel: prices, technical, fundamental, behavior."""
 
 import logging
 
@@ -12,7 +12,7 @@ def build_panel(cfg: dict) -> None:
     (LSEG source to be added); freshness counter for quarterly data.
     Behavioral: time-decayed MarketPsych features (to be added).
 
-    Reads: <prices.out>, <technicals.out> (+ fundamentals/behavior when implemented)
+    Reads: <prices.out>, <technical.out> (+ fundamental/behavior when implemented)
     Writes: <panel.out> (columns: date, ric, *features)
     """
     log.warning("panel: not implemented yet; no output written")

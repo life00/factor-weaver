@@ -51,8 +51,11 @@ marketpsych:
 prices:
   out: data/interim/prices.parquet
 
-technicals:
-  out: data/interim/technicals.parquet
+fundamental:
+  out: data/interim/fundamental.parquet
+
+technical:
+  out: data/interim/technical.parquet
 
 panel:
   out: data/processed/panel.parquet

@@ -7,7 +7,7 @@ def black_litterman(t: pd.Timestamp, members: list[str], hist: pd.DataFrame) -> 
     """Kolm & Ritter (2021) BLB on the top-50 universe.
 
     APT r = Xf + e, e ~ N(0, D); loadings X = standardized panel composites
-    (momentum <- technicals; value/quality <- fundamentals; sentiment/attention
+    (momentum <- technical features; value/quality <- fundamentals; sentiment/attention
     <- behavioral). Factor returns via cross-sectional OLS; data-driven prior
     xi/V; AR(1) expanding-window view forecasts q with Omega = diag(v_ii);
     posterior E[r], Cov[r] via paper eqs. 25-27 (numpy) -> shared tangency()

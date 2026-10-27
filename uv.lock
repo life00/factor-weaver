@@ -1132,6 +1132,9 @@ source = { editable = "." }
 dependencies = [
     { name = "lseg-data" },
     { name = "mlflow" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pandas" },
     { name = "pyarrow" },
     { name = "pyportfolioopt" },
@@ -1154,6 +1157,7 @@ dev = [
 requires-dist = [
     { name = "lseg-data", specifier = ">=2.0" },
     { name = "mlflow", specifier = ">=2.0" },
+    { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.0" },
     { name = "pyarrow", specifier = ">=14.0" },
     { name = "pyportfolioopt", specifier = ">=1.5" },
