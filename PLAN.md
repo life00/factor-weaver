@@ -1,7 +1,8 @@
 # PLAN — Benchmark Models & Evaluation Framework
 
-> Status: planned; module skeletons stubbed. Phase 1 runs on existing
-> price/universe data; Phase 2 additionally needs the panel data file (§2).
+> Status: models planned; module skeletons stubbed. Data builds are implemented
+> through technical, fundamental, and behavioral features; Phase 1 runs on the
+> built price/universe/feature files; Phase 2 additionally needs the panel data file (§2).
 > Detailed per-model documentation: `docs/models.md`.
 
 ## 1. Goal
@@ -36,13 +37,14 @@ Equivalence guarantees — the central design decision:
    long-tidy `(date, ric, *features)` for all universe members 1998–2026 —
    technical, fundamental (LSEG, report-date-anchored forward-fill), behavioral
    (MarketPsych, time-decayed) — strictly no look-ahead.
-2. `data/interim/extra_prices.parquet`: `^GSPC`, `^VIX` + add `^IRX` to
-   `yahoo.extra_symbols` in `config/data.yaml`. `^IRX` is a 13-week T-bill
+2. `data/interim/extra_prices.parquet` (implemented): `^GSPC`, `^VIX`, `^IRX`
+   from `yahoo.extra_symbols` in `config/data.yaml`. `^IRX` is a 13-week T-bill
    annualized YIELD, not a price — the engine converts it to a daily cash
    return (yield / 100 / 252).
-3. Already present: `data/interim/universe.parquet` (quarter_end, ric,
-   ticker, delisted, marketcap, rank), `data/interim/prices.parquet`
-   (daily OHLCV).
+3. Built by the data pipeline: `data/interim/universe.parquet` (quarter_end, ric,
+   ticker, delisted, marketcap, rank), `prices.parquet` (daily OHLCV),
+   `technical.parquet`, `fundamental.parquet`, `behavioral.parquet`; the panel
+   merge remains.
 
 ## 3. Architecture
 

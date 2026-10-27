@@ -17,8 +17,9 @@
   - exclude RICs with no price content (`universe.exclude_rics`); next-ranked company fills the slot
   - rank companies, not RICs: one RIC per LSEG PermID (share classes like GOOG/GOOGL share one company market cap); keep the RIC with the most S&P membership quarters, then alphabetical; RICs without a PermID are dropped
 - alignment
-  - forward-fill fundamentals from their LSEG report date with per-group staleness counter
-  - time-decay for behavioral features
+  - fundamentals: one row per stock-quarter at `max(source_date, original_announcement_date)`, else 60 days after period end capped before the next period; TTM flows, latest-quarter stocks, as-reported (no look-ahead)
+  - technical: daily rows from adjusted prices, market cap, and quarterly shares
+  - behavioral: sparse daily rows (no row = no coverage); panel time-decay not implemented
 
 ## Flow
 
@@ -26,35 +27,43 @@
 flowchart LR
   lseg[("LSEG data API")] --> fetch_ref["fetch: constituents<br/>joiners/leavers · mapping · market cap"]
   lseg --> fetch_px["fetch: daily OHLCV per RIC"]
+  lseg --> fetch_fund["fetch: quarterly TR.F.* per RIC"]
   yahoo[("Yahoo Finance")] --> fetch_yf["fetch: extra symbols<br/>indices · yields"]
   mpsych[("MarketPsych Files API")] --> fetch_mp["fetch: behavioral<br/>file listing + downloads"]
   fetch_ref --> raw[("data/raw/")]
   fetch_px --> raw
+  fetch_fund --> raw
   fetch_yf --> raw
   fetch_mp --> raw
   raw --> univ["build: universe<br/>top-50 S&P500 per quarter"]
   raw --> bprices["build: prices<br/>LSEG OHLCV per universe RIC"]
   raw --> bextra["build: extra-prices<br/>Yahoo extra series"]
+  raw --> bfund["build: fundamental<br/>quarterly features"]
   raw --> bbeh["build: behavioral<br/>sparse PermID → RIC rows"]
-  bprices --> tech["build: technicals (stub)"]
-  bbeh -.-> panel
-  tech --> panel["build: panel (stub)"]
-  univ --> panel
-  panel --> split["build: split (stub)"]
+  raw --> tech["build: technical<br/>daily features"]
+  univ --> interim[("data/interim/")]
+  bextra --> interim
+  bprices <--> interim
+  bfund <--> interim
+  bbeh <--> interim
+  tech <--> interim
+  interim --> panel["build: panel (stub)"]
+  panel --> processed[("data/processed/")]
+  processed <--> split["build: split (stub)"]
 ```
 
-Steps are existence-cached and run in manifest order; `factor-weaver data --list` shows status, `--refresh` refetches raw data (see `docs/architecture.md`).
+Bidirectional arrows mark builds that both read and write the same store. Fetch steps are existence-cached (whole outputs or per-item caches); build steps rerun on each invocation. Selected steps pull missing producers, then run in manifest order; `factor-weaver data --list` shows status, `--refresh` refetches raw data (see `docs/architecture.md`).
 
 ## Variables
 
 - for each stock (model features and calculations: `docs/features.md`)
   - price
     - daily OHLCV
-  - technical (stub; computed from prices)
+  - technical (implemented; `build/technical.py`, from prices)
     - momentum, volatility, size, short-term reversal, share turnover
-  - fundamental (raw fetch implemented; LSEG)
+  - fundamental (implemented; `build/fundamental.py`, LSEG)
     - net share issuance, book-to-market, operating profitability, asset growth, sales-to-price
-  - behavioral (LSEG MarketPsych)
+  - behavioral (implemented; `build/behavioral.py`, LSEG MarketPsych)
     - attention — `buzz` (media coverage volume, news + social blended) → media attention
     - sentiment — `sentiment` (net polarity) → news sentiment
 - extra assets
@@ -73,11 +82,11 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
   - PermID-resolved, universe share line: each company's US consolidated RIC (LSEG symbology) when it is the universe line (KO.N → KO), else the universe RIC; the other is the fallback (renames: PSKY.OQ → SKYD.K); a series must cover the membership window; rows labelled with the universe RIC
   - <https://finance.yahoo.com/> via `yfinance` — only the configured `extra_symbols` (`^GSPC`, `^VIX`, `^IRX`), never universe stocks; `extra-prices` build step writes them to `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
 - fundamental
-  - LSEG data API — quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one long parquet per RIC: `ric, field, value, period_end, fiscal_period, source_date, fund_upd_type, original_announcement_date`; as originally reported, USD; window `lseg.start`..`universe.end` for 36-month lookback); `build/panel.py` integration not implemented
+  - LSEG data API — quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one long parquet per RIC: `ric, field, value, period_end, fiscal_period, source_date, fund_upd_type, original_announcement_date`; as originally reported, USD; window `lseg.start`..`universe.end` for 36-month lookback); `build/fundamental.py` writes one row per stock-quarter at the availability date above (TTM flows, latest-quarter stocks, market equity from quarter-end cap and closes); output `data/interim/fundamental.parquet`; `panel` integration not implemented
 - technical
-  - computed from prices (`docs/features.md`); `build/technicals.py` is a stub
+  - computed in `build/technical.py` from `prices.parquet`, market cap, and quarterly shares (`docs/features.md`); output `data/interim/technical.parquet` with daily rows
 - behavioral
-  - using LSEG MarketPsych Analytics
+  - LSEG MarketPsych Analytics — file API raw slices in `data/raw/marketpsych/`; `build/behavioral.py` clips to `[marketpsych.start, end)`, collapses duplicate slices, and maps each PermID series to its universe RIC(s); sparse output `data/interim/behavioral.parquet`
 
 ## Issues
 
@@ -115,14 +124,16 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
 
 ### Fundamentals
 
-- **Availability date is `source_date`**: the original announcement date can precede the
-  period end (FRE 2000Q1, KMI 2011Q1, MS 2009Q1, TFCFA 1999Q4) or belong to another entity
-  (CVX 2001 quarters are ChevronTexaco figures first filed in 2002); `source_date` is never
-  before the period end. A late `source_date` (pre-IPO quarters, GOOGL 2005Q4) only skips a period
+- **Availability date is `max(source_date, original_announcement_date)`**, clipped to the
+  period end; missing dates fall back to 60 days after the period end, capped before the
+  next period. The original announcement date can precede the period end (FRE 2000Q1,
+  KMI 2011Q1, MS 2009Q1, TFCFA 1999Q4) or belong to another entity (CVX 2001 quarters are
+  ChevronTexaco figures first filed in 2002); `source_date` is never before the period end.
+  A late `source_date` (pre-IPO quarters, GOOGL 2005Q4) only skips a period
 - **Statement metadata is joined per field**: LSEG rows can mix periods after fiscal-year
   changes (GS revenue, NOW equity), so dates are matched on each field's own period end;
   a field period without statement metadata keeps empty dates
-- **LSEG value artifacts, left for `panel` to clean**: derived quarters with a missing annual
+- **LSEG value artifacts, carried into `fundamental.parquet`**: derived quarters with a missing annual
   figure go negative (KO 1999Q4 revenue = −(Q1+Q2+Q3); 31 negative revenues, mostly pre-2010
   Q4) or implausibly small (DIS FY1998Q4); scale errors (AT.N^K07 2007Q2 shares 3.4e14)
 - **Coverage gaps**: no data for GM.N^F09 and WM.N^I08; SHEL.N has none during its

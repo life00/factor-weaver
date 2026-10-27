@@ -9,7 +9,7 @@
     - `pipeline.py` — ordered `Step` manifest + dependency-aware runner
     - `store.py` — parquet writes + cache paths
     - `fetch/` — external I/O only, one module per source (`lseg`, `yahoo`, `marketpsych`); writes `data/raw/`
-    - `build/` — derived data only (`universe`, `prices`, `technicals`, `panel`, `split`); writes `data/interim|processed`
+    - `build/` — derived data only (`universe`, `prices`, `technical`, `fundamental`, `behavioral`, `panel`, `split`); writes `data/interim|processed`
   - `models/` — MODULE 2: weight-producing models (`simple`, `optimize`, `mean_variance`, `black_litterman`, `ml_forecast`, `rl/`); registry + trainers in `models/__init__.py`
   - `eval/` — MODULE 3: shared daily backtest engine + metrics
 
@@ -20,9 +20,10 @@ flowchart TB
 
   workflows --> pipeline["data/pipeline.py<br/>Step manifest + runner"]
   pipeline --> fetch["data/fetch/<br/>lseg · yahoo · marketpsych"]
-  pipeline --> build["data/build/<br/>universe · prices · technicals · panel · split"]
+  pipeline --> build["data/build/<br/>universe · prices · technical · fundamental · behavioral · panel · split"]
   fetch --> raw[("data/raw/")]
-  build --> derived[("data/interim<br/>data/processed")]
+  build --> interim[("data/interim")]
+  build --> processed[("data/processed")]
 
   workflows --> models["models/<br/>weight providers"]
   workflows --> engine["eval/backtest.py<br/>shared daily engine"]
@@ -33,9 +34,9 @@ flowchart TB
 - data pipeline
   - `Step(name, run, phase, ins, outs, per_item)` declares config-key inputs/outputs
   - phases
-    - `fetch` writes only `data/raw/`; existence-cached (whole outputs, or per-RIC/per-symbol inside the price steps)
-    - `build` writes only `data/interim|processed`
-  - selecting a step pulls the producers of missing inputs transitively (logged `+ name`); execution is always manifest order
+    - `fetch` writes only `data/raw/`; whole-output steps are skipped when their outputs exist, `per_item` steps always run to fill gaps (per-RIC LSEG prices/fundamentals, per-symbol Yahoo series, MarketPsych slices)
+    - `build` writes only `data/interim|processed`; build steps always run
+  - selecting a step pulls the producers of missing inputs transitively, including producers outside the requested phase (logged `+ name`); execution is always manifest order
   - `--refresh` refetches cached raw data; use it instead of deleting cache files
   - `factor-weaver data --list` prints each step's phase, outputs and existence
 - weight-provider contract
@@ -57,8 +58,8 @@ flowchart TB
 
 | Module                                         | Status      |
 | ---------------------------------------------- | ----------- |
-| `data/fetch/*`, `data/build/{universe,prices}` | implemented |
-| `data/build/{technicals,panel,split}`          | stub        |
+| `data/fetch/*`, `data/build/{universe,prices,extra-prices,technical,fundamental,behavioral}` | implemented |
+| `data/build/{panel,split}`                     | stub        |
 | `models/*`, `eval/backtest.py`                 | stub        |
 | `workflows/{data,report}`                      | implemented |
 | `workflows/{train,evaluate}`                   | stub        |

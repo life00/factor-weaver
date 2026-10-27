@@ -1,6 +1,6 @@
 # Factor Weaver — Agent Guide
 
-**Status: data pipeline implemented through prices and fundamentals (fetch only)** (LSEG retrieval, top-50 universe, LSEG prices, Yahoo index/yield series); `technicals`, `panel`, `split` are stubs. Models, shared engine, and `train`/`eval` workflows are stubbed per `PLAN.md`.
+**Status: data pipeline implemented through the technical, fundamental, and behavioral feature builds** (LSEG retrieval, top-50 universe, LSEG prices/fundamentals, Yahoo index/yield series, MarketPsych); `panel` and `split` are stubs. Models, shared engine, and `train`/`eval` workflows are stubbed per `PLAN.md`.
 
 ## Project
 
@@ -20,7 +20,7 @@ src/factor_weaver/
 │   ├── pipeline.py   #   step manifest (Step: phase, ins, outs) + dependency-aware runner
 │   ├── store.py      #   shared parquet read/write + cache paths
 │   ├── fetch/        #   external I/O only, one module per source: lseg, yahoo, marketpsych (writes data/raw/)
-│   └── build/        #   derived data only: universe, prices, technicals, panel, split
+│   └── build/        #   derived data only: universe, prices, technical, fundamental, behavioral, panel, split
 ├── models/           # MODULE 2: weight-producing models: simple, optimize, mean_variance, black_litterman, ml_forecast, rl/ (env, model, ppo, policy)
 └── eval/             # MODULE 3: backtest (shared engine + metrics)
 
@@ -40,7 +40,7 @@ tests/                # pytest checks (universe/prices tests synthetic)
 - `factor-weaver train [MODEL]` (default `rl`): dispatches through `models.TRAINERS`; `--resume` continues from a checkpoint (stub).
 - `factor-weaver eval [MODEL ...]`: runs each selected `models.REGISTRY` provider (default all) through the shared engine; `--start/--end` override the eval window; `--checkpoint` overrides the RL checkpoint. Bare `eval` skips `rl` with a warning when no checkpoint is configured (stub).
 - `factor-weaver report [--experiment NAME] [--out PATH]`: queries the shared MLflow experiment (`tags.kind = eval`) into a comparison table or CSV.
-- Fetch steps are existence-cached: whole-step skip when outputs exist, per-RIC/per-symbol skip inside the price steps; a fully cached run needs no credentials or network.
+- Fetch steps are existence-cached: whole-step skip when outputs exist, per-RIC/per-symbol/per-slice skip inside the `per_item` steps (LSEG prices/fundamentals, Yahoo prices, MarketPsych); whole-step and cached LSEG/Yahoo steps need no credentials or network, while MarketPsych still lists files before its per-slice cache check.
 
 ## Key files
 
@@ -59,8 +59,9 @@ tests/                # pytest checks (universe/prices tests synthetic)
 
 - S&P500 constituent list, joiner/leaver history (since 1994), RIC mapping, and market cap (`TR.CompanyMarketCap`, fallback `TR.F.MktCap`): fetched from LSEG data API, cached in `data/raw/lseg/`; used for top-50 universe selection.
 - Price data: LSEG data API daily OHLCV for every universe stock (per-RIC cache in `data/raw/lseg/prices/`, from `lseg.start` for lookback; no fallback source); Yahoo Finance (`yfinance`) only for the extra index/yield series in `yahoo.extra_symbols` (per-symbol cache in `data/raw/yahoo/prices/`).
-- Fundamentals: LSEG data API quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one long parquet per RIC, as originally reported, USD, from `lseg.start` for lookback; availability = `source_date`); `panel` build integration not implemented.
-- Behavioral: planned from MarketPsych (not yet implemented).
+- Fundamentals: LSEG data API quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one long parquet per RIC, as originally reported, USD, from `lseg.start` for lookback; availability = `max(source_date, original_announcement_date)`, 60-day fallback); `build/fundamental.py` writes stock-quarter features to `data/interim/fundamental.parquet`; `panel` integration not implemented.
+- Technical: computed in `build/technical.py` from `prices.parquet`, market cap, and quarterly shares to `data/interim/technical.parquet`.
+- Behavioral: MarketPsych file API raw slices in `data/raw/marketpsych/`; `build/behavioral.py` clips to `[marketpsych.start, end)`, dedupes slices, and maps each PermID series to its universe RIC(s) in `data/interim/behavioral.parquet`; `panel` integration not implemented.
 - Benchmarks/evaluation (per `docs/models.md`): scikit-learn (GBRT, Ledoit–Wolf), PyPortfolioOpt (tangency optimizer), mlflow (tracking) — declared in `pyproject.toml`; risk-free via `^IRX` (yield series, not a price).
 - Dev: `uv sync` installs the project plus the `dev` dependency group into `.venv`; run checks with `uv run pytest tests/`, `ruff check .`, `pyright src`.
 

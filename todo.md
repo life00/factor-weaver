@@ -11,7 +11,7 @@
   - [x] behavioral data pipeline for marketpsych
   - [x] use PermID's for universe
   - [x] retrieve and process behavioral data
-  - [ ] select and fetch fundamental variables
+  - [x] select and fetch fundamental variables
   - [ ] complete panel data file (date, ric, *features)
   - [ ] perform data check and cleanup (if necessary): missing values, errors (outliers)
   - [ ] exploratory data analysis: basic descriptive statistics, correlation, and standardization of variables

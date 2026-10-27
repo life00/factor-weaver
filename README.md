@@ -16,8 +16,8 @@ flowchart LR
 
 ## Status
 
-- Implemented: data pipeline through prices and fundamentals (fetch only) (LSEG universe/prices/fundamentals, Yahoo index/yield series), config, CLI and workflows (`data`, `report`), tests.
-- Stubbed: technicals, panel, split; all models; shared backtest engine; `train` and `eval`.
+- Implemented: data pipeline through the technical, fundamental, and behavioral feature builds (LSEG universe/prices/fundamentals, Yahoo index/yield series, MarketPsych); config, CLI and workflows (`data`, `report`); tests.
+- Stubbed: `panel` and `split` builds; all models; shared backtest engine; `train` and `eval`.
 
 ## Tech stack
 
@@ -46,6 +46,7 @@ Fetch steps are existence-cached (whole outputs and per-RIC/per-symbol price cac
 
 - [`docs/architecture.md`](docs/architecture.md) — modules, data pipeline, runtime flow
 - [`docs/data.md`](docs/data.md) — sample, variables, sources
+- [`docs/features.md`](docs/features.md) — feature set, definitions, normalization
 - [`docs/methodology.md`](docs/methodology.md) — environment, model architecture, evaluation
 - [`docs/models.md`](docs/models.md) — benchmarks + shared backtest engine
 - [`docs/literature.md`](docs/literature.md) — annotated references
