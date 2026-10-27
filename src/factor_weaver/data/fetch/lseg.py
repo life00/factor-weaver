@@ -63,19 +63,16 @@ _FUND_META_FIELDS = [
     "TR.F.SourceDate",
     "TR.F.SourceDate.FundUpdType",
 ]
-_FUND_SUFFIXES = ("", ".date", ".calcdate", ".fperiod")
+_FUND_SUFFIXES = ("", ".date", ".fperiod")
 
 _FUND_OUT_COLS = [
     "ric",
     "field",
     "value",
-    "date",
     "period_end",
     "fiscal_period",
     "source_date",
-    "calc_date",
     "fund_upd_type",
-    "statement_type",
     "original_announcement_date",
 ]
 _FUND_COLUMNS = pd.Index(_FUND_OUT_COLS)
@@ -499,9 +496,14 @@ def _fund_columns(df: pd.DataFrame, fields: list[str]) -> pd.DataFrame:
 
 
 def _normalize_fundamentals(
-    df: pd.DataFrame, ric: str, fields: list[str], announcement_col: str, statement: str
+    df: pd.DataFrame, ric: str, fields: list[str], announcement_col: str
 ) -> pd.DataFrame:
-    """Long (ric, field, value, date, metadata) rows from one statement response."""
+    """Long (ric, field, value, period_end, metadata) rows from one statement response.
+
+    Rows of one response need not describe one period (GS revenue, NOW equity after
+    fiscal-year changes), so each field is keyed by its own .date and the statement
+    metadata is joined on PeriodEndDate rather than taken from the same row.
+    """
     if df.empty:
         return pd.DataFrame(columns=_FUND_COLUMNS)
 
@@ -515,13 +517,19 @@ def _normalize_fundamentals(
         col = _col(df, name)
         return _dates(cast(pd.Series, df[col])) if col else pd.Series(pd.NaT, index=df.index)
 
-    period_end = days("TR.F.PeriodEndDate")
-    if isinstance(df.index, pd.DatetimeIndex):
-        # The date row header carries the period date when LSEG omits PeriodEndDate.
-        period_end = period_end.fillna(pd.Series(df.index, index=df.index))
-    source_date = days("TR.F.SourceDate")
-    fund_upd_type = text("TR.F.SourceDate.FundUpdType")
-    announcement = days(announcement_col)
+    meta = (
+        pd.DataFrame(
+            {
+                "period_end": days("TR.F.PeriodEndDate"),
+                "source_date": days("TR.F.SourceDate"),
+                "fund_upd_type": text("TR.F.SourceDate.FundUpdType"),
+                "original_announcement_date": days(announcement_col),
+            }
+        )
+        .dropna(subset=["period_end"])
+        .sort_values("source_date", kind="stable")  # NaT last: keep the dated copy
+        .drop_duplicates("period_end")
+    )
 
     frames: list[pd.DataFrame] = []
     for field in fields:
@@ -529,47 +537,39 @@ def _normalize_fundamentals(
         if value_col is None:
             log.warning("%s: field %s not returned; skipped", ric, field)
             continue
-        value = cast(pd.Series, pd.to_numeric(df[value_col], errors="coerce"))
-        if value.notna().sum() == 0:
-            continue
-        frames.append(
-            pd.DataFrame(
-                {
-                    "ric": ric,
-                    "field": field,
-                    "value": value,
-                    "date": days(f"{field}.date").fillna(period_end),
-                    "period_end": period_end,
-                    "fiscal_period": text(f"{field}.fperiod"),
-                    "source_date": source_date,
-                    "calc_date": days(f"{field}.calcdate"),
-                    "fund_upd_type": fund_upd_type,
-                    "statement_type": statement,
-                    "original_announcement_date": announcement,
-                },
-                index=df.index,
-            )
-        )
+        frame = pd.DataFrame(
+            {
+                "field": field,
+                "value": pd.to_numeric(df[value_col], errors="coerce"),
+                "period_end": days(f"{field}.date"),
+                "fiscal_period": text(f"{field}.fperiod"),
+            }
+        ).dropna(subset=["value"])
+        undated = int(frame["period_end"].isna().sum())
+        if undated:
+            log.debug("%s: %s has %d values without a date; dropped", ric, field, undated)
+        frames.append(frame.dropna(subset=["period_end"]))
+    frames = [f for f in frames if not f.empty]
     if not frames:
         return pd.DataFrame(columns=_FUND_COLUMNS)
-    out = pd.concat(frames, ignore_index=True)
-    out = out.dropna(subset=["value", "date"]).drop_duplicates()
+    out = pd.concat(frames, ignore_index=True).merge(meta, on="period_end", how="left")
+    out["ric"] = ric
+    out["value"] = out["value"].astype("float64")
     return (
-        out.sort_values(["date", "field"])
+        out.drop_duplicates(["field", "period_end"])
+        .sort_values(["period_end", "field"])
         .reindex(columns=_FUND_COLUMNS)
         .reset_index(drop=True)
     )
 
 
-def _fund_params(
-    start: str, end: str, reporting_state: str = "Orig", consolidated: bool = True
-) -> dict[str, str]:
+def _fund_params(start: str, end: str, consolidated: bool = True) -> dict[str, str]:
     params = {
         "SDATE": _api_date(start),
         "EDATE": _api_date(end),
         "Period": "FQ0",
         "Frq": "FQ",
-        "ReportingState": reporting_state,
+        "ReportingState": "Orig",
         "Curn": "USD",
         "FXRate": "PeriodEnd",
         "Scale": "0",
@@ -580,25 +580,20 @@ def _fund_params(
 
 
 def _fetch_statement(ld: Any, ric: str, start: str, end: str, fields: list[str]) -> pd.DataFrame:
-    """Fetch one statement, preferring Orig, then falling back to All.
+    """Fetch one statement as originally reported, consolidated basis first.
 
-    The date row header keeps the response date-indexed. The default flat layout
-    concatenates field series positionally, so a series with different coverage
-    (e.g. no announcement date for early quarters) shifts later columns by a row.
+    No ReportingState=All fallback: restated values would pass as originals.
+    The date row header does not guarantee one period per row;
+    _normalize_fundamentals joins on each field's own date.
     """
     fr = ld.content.fundamental_and_reference
-    last: Exception | None = None
-    for reporting_state, consolidated in (
-        ("Orig", True),
-        ("Orig", False),
-        ("All", True),
-        ("All", False),
-    ):
+    last: Exception = RuntimeError("empty response")
+    for consolidated in (True, False):
         try:
             response = fr.Definition(
                 [ric],
                 fields,
-                parameters=_fund_params(start, end, reporting_state, consolidated),
+                parameters=_fund_params(start, end, consolidated),
                 row_headers=[fr.RowHeaders.DATE],
                 header_type=ld.HeaderType.NAME,
             ).get_data()
@@ -611,8 +606,6 @@ def _fetch_statement(ld: Any, ric: str, start: str, end: str, fields: list[str])
         if not df.empty:
             return _fund_columns(df, fields)
         last = RuntimeError("empty response")
-    if last is None:
-        raise RuntimeError("empty response")
     raise last
 
 
@@ -632,19 +625,18 @@ def _try_fundamentals(
             df = pd.concat(
                 [
                     _normalize_fundamentals(
-                        is_df, ric, _FUND_IS_FIELDS, "TR.ISOriginalAnnouncementDate", "is"
+                        is_df, ric, _FUND_IS_FIELDS, "TR.ISOriginalAnnouncementDate"
                     ),
                     _normalize_fundamentals(
-                        bs_df, ric, _FUND_BS_FIELDS, "TR.BSOriginalAnnouncementDate", "bs"
+                        bs_df, ric, _FUND_BS_FIELDS, "TR.BSOriginalAnnouncementDate"
                     ),
-                ]
+                ],
+                ignore_index=True,
             )
-            df = df.sort_values(["date", "field"]).reindex(columns=_FUND_COLUMNS)
-            df = df.reset_index(drop=True)
             if df.empty:
                 errors.append(f"{candidate}: no values")
                 continue
-            return df, None
+            return df.sort_values(["period_end", "field"], ignore_index=True), None
         errors.append(f"{candidate}: IS {is_err or 'ok'}; BS {bs_err or 'ok'}")
     return pd.DataFrame(columns=_FUND_COLUMNS), "; ".join(errors)
 
@@ -652,7 +644,8 @@ def _try_fundamentals(
 def fetch_fundamentals(cfg: dict[str, Any]) -> None:
     """Cache raw quarterly fundamentals per universe RIC (statement-level metadata).
 
-    Reads: <universe.assets_out>; window <universe.start>..<universe.end> (as prices)
+    Reads: <universe.assets_out>; window <lseg.start>..<universe.end>: the years before
+    universe.start are lookback for 36-month net issuance and 4-quarter growth
     Writes: per-RIC cache under <lseg.fundamentals_out>
     """
     assets_path = Path(cfg["universe"]["assets_out"])
@@ -660,7 +653,7 @@ def fetch_fundamentals(cfg: dict[str, Any]) -> None:
         raise FileNotFoundError(f"run the universe step first; missing: {assets_path}")
     assets = pd.read_parquet(assets_path)
     cache_dir = Path(cfg["lseg"]["fundamentals_out"])
-    start, end = cfg["universe"]["start"], cfg["universe"]["end"]
+    start, end = cfg["lseg"]["start"], cfg["universe"]["end"]
     refresh = bool(cfg.get("_refresh"))
 
     pending: list[tuple[str, str, Path]] = []

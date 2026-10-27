@@ -73,7 +73,7 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
   - PermID-resolved, universe share line: each company's US consolidated RIC (LSEG symbology) when it is the universe line (KO.N → KO), else the universe RIC; the other is the fallback (renames: PSKY.OQ → SKYD.K); a series must cover the membership window; rows labelled with the universe RIC
   - <https://finance.yahoo.com/> via `yfinance` — only the configured `extra_symbols` (`^GSPC`, `^VIX`, `^IRX`), never universe stocks; `extra-prices` build step writes them to `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
 - fundamental
-  - LSEG data API — quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one parquet per RIC, USD, statement-level source and original announcement dates); `build/panel.py` integration not implemented
+  - LSEG data API — quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one long parquet per RIC: `ric, field, value, period_end, fiscal_period, source_date, fund_upd_type, original_announcement_date`; as originally reported, USD; window `lseg.start`..`universe.end` for 36-month lookback); `build/panel.py` integration not implemented
 - technical
   - computed from prices (`docs/features.md`); `build/technicals.py` is a stub
 - behavioral
@@ -112,6 +112,22 @@ Steps are existence-cached and run in manifest order; `factor-weaver data --list
 - **Existence-based caches**: reference files and per-RIC/per-symbol price caches are
   skipped when present; use `factor-weaver data fetch --refresh` (optionally per step,
   e.g. `data fetch lseg-constituents --refresh`) instead of deleting files
+
+### Fundamentals
+
+- **Availability date is `source_date`**: the original announcement date can precede the
+  period end (FRE 2000Q1, KMI 2011Q1, MS 2009Q1, TFCFA 1999Q4) or belong to another entity
+  (CVX 2001 quarters are ChevronTexaco figures first filed in 2002); `source_date` is never
+  before the period end. A late `source_date` (pre-IPO quarters, GOOGL 2005Q4) only skips a period
+- **Statement metadata is joined per field**: LSEG rows can mix periods after fiscal-year
+  changes (GS revenue, NOW equity), so dates are matched on each field's own period end;
+  a field period without statement metadata keeps empty dates
+- **LSEG value artifacts, left for `panel` to clean**: derived quarters with a missing annual
+  figure go negative (KO 1999Q4 revenue = −(Q1+Q2+Q3); 31 negative revenues, mostly pre-2010
+  Q4) or implausibly small (DIS FY1998Q4); scale errors (AT.N^K07 2007Q2 shares 3.4e14)
+- **Coverage gaps**: no data for GM.N^F09 and WM.N^I08; SHEL.N has none during its
+  1997–2002 membership (PermID resolves to Shell plc); GS/UNH have no COGS, and interest
+  expense is sparse for low-debt companies
 
 ### Behavioral
 

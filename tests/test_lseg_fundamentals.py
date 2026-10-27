@@ -30,7 +30,6 @@ def _frame(fields, values, announcement_col, announcement, period_end="2020-03-3
     for field, value in zip(fields, values):
         row[field] = value
         row[f"{field}.date"] = period_end
-        row[f"{field}.calcdate"] = "2020-04-21"
         row[f"{field}.fperiod"] = "FQ1 2020"
     return pd.DataFrame([row])
 
@@ -99,8 +98,8 @@ def _cfg(tmp_path):
     assets = tmp_path / "assets.parquet"
     pd.DataFrame({"ric": ["AAPL.O"], "permid": ["4295904307"]}).to_parquet(assets, index=False)
     return {
-        "universe": {"assets_out": str(assets), "start": "2020-01-01", "end": "2020-12-31"},
-        "lseg": {"fundamentals_out": str(tmp_path / "fund")},
+        "universe": {"assets_out": str(assets), "end": "2020-12-31"},
+        "lseg": {"start": "2019-01-01", "fundamentals_out": str(tmp_path / "fund")},
     }
 
 
@@ -137,56 +136,73 @@ def test_normalize_fundamentals_schema_and_dates():
     out = pd.concat(
         [
             _normalize_fundamentals(
-                _is_frame(), "AAPL.N", _IS_FIELDS, "TR.ISOriginalAnnouncementDate", "is"
+                _is_frame(), "AAPL.N", _IS_FIELDS, "TR.ISOriginalAnnouncementDate"
             ),
             _normalize_fundamentals(
-                _bs_frame(), "AAPL.N", _BS_FIELDS, "TR.BSOriginalAnnouncementDate", "bs"
+                _bs_frame(), "AAPL.N", _BS_FIELDS, "TR.BSOriginalAnnouncementDate"
             ),
         ]
     )
     assert list(out.columns) == _FUND_OUT_COLS
     assert len(out) == 7
     assert set(out["ric"]) == {"AAPL.N"}
-    assert out["date"].eq(pd.Timestamp("2020-03-31")).all()
-    assert out["period_end"].notna().all()
+    assert out["period_end"].eq(pd.Timestamp("2020-03-31")).all()
+    assert out["value"].dtype == "float64"
     assert out["source_date"].eq(pd.Timestamp("2020-04-20")).all()
-    assert out["calc_date"].eq(pd.Timestamp("2020-04-21")).all()
     assert out["fund_upd_type"].eq("Original").all()
     revenue = out.set_index("field").loc["TR.F.TotRevenue"]
     total_assets = out.set_index("field").loc["TR.F.TotAssets"]
     assert revenue["original_announcement_date"] == pd.Timestamp("2020-04-16")
     assert total_assets["original_announcement_date"] == pd.Timestamp("2020-04-17")
-    assert revenue["statement_type"] == "is"
-    assert total_assets["statement_type"] == "bs"
 
 
 def test_normalize_fundamentals_empty():
-    out = _normalize_fundamentals(pd.DataFrame(), "AAPL.O", _IS_FIELDS, "x", "is")
+    out = _normalize_fundamentals(pd.DataFrame(), "AAPL.O", _IS_FIELDS, "x")
     assert out.empty
     assert list(out.columns) == _FUND_OUT_COLS
 
 
 def test_normalize_fundamentals_skips_missing_field():
     df = _is_frame().drop(columns=["TR.F.IntrExpn"])
-    out = _normalize_fundamentals(df, "AAPL.O", _IS_FIELDS, "TR.ISOriginalAnnouncementDate", "is")
+    out = _normalize_fundamentals(df, "AAPL.O", _IS_FIELDS, "TR.ISOriginalAnnouncementDate")
     assert len(out) == 3
     assert "TR.F.IntrExpn" not in set(out["field"])
 
 
-def test_normalize_fundamentals_fills_nat_field_date():
-    df = _is_frame()
-    df["TR.F.TotRevenue.date"] = pd.NaT
-    out = _normalize_fundamentals(df, "AAPL.O", _IS_FIELDS, "TR.ISOriginalAnnouncementDate", "is")
-    revenue = out.set_index("field").loc["TR.F.TotRevenue"]
-    assert revenue["date"] == revenue["period_end"] == pd.Timestamp("2020-03-31")
+def test_normalize_fundamentals_aligns_meta_by_period_end():
+    # GS case: the revenue series sits one row above the statement metadata.
+    df = pd.concat(
+        [
+            _is_frame(),
+            _frame(
+                _IS_FIELDS,
+                [110.0, 44.0, 22.0, 6.0],
+                "TR.ISOriginalAnnouncementDate",
+                "2020-07-16",
+                period_end="2020-06-30",
+            ).assign(**{"TR.F.SourceDate": "2020-07-20"}),
+        ],
+        ignore_index=True,
+    )
+    df.loc[0,["TR.F.TotRevenue", "TR.F.TotRevenue.date"]] = [110.0, "2020-06-30"]
+    df.loc[1, ["TR.F.TotRevenue", "TR.F.TotRevenue.date"]] = [120.0, "2020-09-30"]
+    out = _normalize_fundamentals(df, "GS.N", _IS_FIELDS, "TR.ISOriginalAnnouncementDate")
+    revenue = out[out["field"] == "TR.F.TotRevenue"].set_index("period_end")
+    june = revenue.loc[pd.Timestamp("2020-06-30")]
+    assert june["value"] == 110.0
+    assert june["source_date"] == pd.Timestamp("2020-07-20")
+    assert june["original_announcement_date"] == pd.Timestamp("2020-07-16")
+    # No metadata row for September: dates stay empty instead of borrowing a neighbour's.
+    assert pd.isna(revenue.loc[pd.Timestamp("2020-09-30"), "source_date"])
 
 
-def test_normalize_fundamentals_fills_missing_period_end_from_index():
-    df = _is_frame()
-    df.index = pd.DatetimeIndex(df["TR.F.PeriodEndDate"])
-    df["TR.F.PeriodEndDate"] = pd.NA
-    out = _normalize_fundamentals(df, "AAPL.O", _IS_FIELDS, "TR.ISOriginalAnnouncementDate", "is")
-    assert out["period_end"].eq(pd.Timestamp("2020-03-31")).all()
+def test_normalize_fundamentals_dedupes_period():
+    undated = _is_frame().assign(**{"TR.F.SourceDate": pd.NA})
+    df = pd.concat([undated, _is_frame()], ignore_index=True)
+    out = _normalize_fundamentals(df, "MS.N", _IS_FIELDS, "TR.ISOriginalAnnouncementDate")
+    assert len(out) == 4
+    assert not out.duplicated(["field", "period_end"]).any()
+    assert out["source_date"].eq(pd.Timestamp("2020-04-20")).all()
 
 
 def test_fetch_fundamentals_writes_raw(tmp_path, fake):
