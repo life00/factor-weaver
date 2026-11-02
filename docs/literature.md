@@ -26,7 +26,7 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
       - Heston & Sinha (2017): firms with and without news earn different returns, but not in the largest size decile (t = 0.18)
     - sentiment
       - Tetlock, Saar-Tsechansky & Macskassy (2008): negative words in news about S&P 500 firms predict low earnings and next-day returns (−3.2 bps per SD); canonical firm-level news sentiment
-      - Heston & Sinha (2017): Thomson Reuters neural-network news sentiment; daily news predicts returns for 1–2 days, weekly news for 13 weeks; justifies the 7-day decay
+      - Heston & Sinha (2017): Thomson Reuters neural-network news sentiment; daily news predicts returns for 1–2 days, weekly news for 13 weeks; justifies the weekly window
     - rejected (MarketPsych replaces search data and in-house LLM scoring)
       - Vozlyublennaia (2014): Google search volume predicts index returns; index-level, search data not used
       - Kirtac & Germano (2025): conceptual framing of LLM-measured sentiment; scores come from MarketPsych

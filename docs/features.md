@@ -84,8 +84,10 @@ t-statistics from Lewellen (2015) Table 2 (stocks above the NYSE median, 15-vari
   - data: LSEG volume, shares outstanding
   - sources: [gu-2020-empirical-asset-pricing-ml], [medhat-2022-short-term-momentum]
 - 9 News sentiment — sentiment
-  - $\dfrac{\sum_{k=0}^{29} w_k \, b_{d-k} \, s_{d-k}}{\sum_{k=0}^{29} w_k \, b_{d-k}}$, $w_k = 0.5^{k/7}$; missing if no buzz in the window
-  - half-life 7 days: weekly sentiment predicts returns for 13 weeks, daily for 1–2 days; biweekly and monthly aggregation work too [heston-2017-news-vs-sentiment]
+  - $\dfrac{\sum_{k=0}^{6} b_{d-k} \, s_{d-k}}{\sum_{k=0}^{6} b_{d-k}}$ = net positive over total references in the 7 days ending $d$; missing if no buzz in the window
+  - weekly window: weekly sentiment predicts returns for 13 weeks, daily for 1–2 days; biweekly and monthly aggregation work too (robustness) [heston-2017-news-vs-sentiment]
+  - pooled ratio: all references in the window form one composite, as all stories of a firm-day in [tetlock-2008-more-than-words]; MarketPsych has no article counts for the per-article mean of [heston-2017-news-vs-sentiment]
+  - Tetlock's prior-year standardization appears pooled across firms (his footnote 3), i.e. the same affine map for every firm on a date, which the cross-sectional rank absorbs
   - data: MarketPsych daily `sentiment` $s_d$ (net positive references / buzz, in $[-1, 1]$) and `buzz` $b_d$, news + social
   - sources: [tetlock-2008-more-than-words] (negative news words also predict low earnings), [heston-2017-news-vs-sentiment] (negative news drifts for a quarter, positive within a week)
 - 10 Media attention (abnormal buzz) — attention
