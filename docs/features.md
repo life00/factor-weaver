@@ -37,77 +37,77 @@ t-statistics from Lewellen (2015) Table 2 (stocks above the NYSE median, 15-vari
 
 - clock: daily per (date, RIC); monthly models sample on rebalance dates
 - windows: trading days for prices (21 = 1 month, 252 = 12 months, 756 = 36 months); calendar days for behavioral data (MarketPsych publishes on weekends)
-- prices: LSEG split-, spin-off- and dividend-adjusted closes → close ratios are total returns
-- volume: LSEG consolidated volume (company queried by PermID; companies resolving to another share line keep exchange volume, `docs/data.md`); NASDAQ before 2004 not halved for double counting
-- market equity: `ME_t` = last quarter-end market cap × `close_t / close_q`
+- prices: LSEG split-, spin-off- and dividend-adjusted closes $P_t$ → close ratios are total returns; daily return $r_t = P_t / P_{t-1} - 1$
+- volume: LSEG consolidated volume $V_t$ (company queried by PermID; companies resolving to another share line keep exchange volume, `docs/data.md`); NASDAQ before 2004 not halved for double counting
+- market equity: $\mathit{ME}_t = \mathit{ME}_q \cdot P_t / P_q$, $\mathit{ME}_q$ = last quarter-end market cap
   - shortcut: ignores share changes and counts dividends since quarter end (≤ ~1%)
-- shares outstanding: split-adjusted; LSEG field to identify
+- shares outstanding: $S_t$, split-adjusted; LSEG field to identify
 - fundamentals: LSEG `TR.F.*`, quarterly; flows over the trailing twelve months (TTM), stocks at the latest quarter
 - availability
   - fundamentals: from the LSEG `source_date` (filing date, `docs/data.md`), else 4 months after period end [gu-2020-empirical-asset-pricing-ml]
-  - behavioral: MarketPsych day d covers the 24 h to 15:30 ET → usable at the close of d (the 3:30 pm news cutoff of [tetlock-2008-more-than-words]); no row = zero buzz
+  - behavioral: MarketPsych day $d$ covers the 24 h to 15:30 ET → usable at the close of $d$ (the 3:30 pm news cutoff of [tetlock-2008-more-than-words]); no row = zero buzz
 - financials: kept; every feature is defined for banks and insurers
 
 ## Features (rank order)
 
 - 1 Momentum (12-1 month return) — momentum
-  - `close_{t−21} / close_{t−252} − 1`: months −12 to −2, skipping the reversal month
+  - $P_{t-21} / P_{t-252} - 1$: months −12 to −2, skipping the reversal month
   - data: daily closes
   - sources: [lewellen-2015-cross-section-expected-returns], [gu-2020-empirical-asset-pricing-ml]
 - 2 Volatility (12 months) — low risk
-  - `std(r_{t−251..t}) · √21`, r = daily total return
+  - $\sqrt{21} \cdot \operatorname{sd}(r_{t-251}, \dots, r_t)$
   - data: daily closes
   - sources: [lewellen-2015-cross-section-expected-returns], [gu-2020-empirical-asset-pricing-ml]
 - 3 Net share issuance (36 months) — issuance
-  - `log(shares_t / shares_{t−756})`
+  - $\log(S_t / S_{t-756})$
   - data: shares outstanding
   - sources: [lewellen-2015-cross-section-expected-returns] (the 12-month version is insignificant), [gu-2020-empirical-asset-pricing-ml] (1-year version; standard input, importance not reported)
 - 4 Size (log market cap) — size
-  - `log ME_t`
+  - $\log \mathit{ME}_t$
   - data: LSEG market cap, daily closes
   - sources: [fama-2015-five-factor], [gu-2020-empirical-asset-pricing-ml], [lewellen-2015-cross-section-expected-returns]
   - narrow spread within the top 50; mainly a control
 - 5 Book-to-market — value
-  - `BE / ME_t`, BE = common equity `TR.F.ShHoldEqCom`; missing if BE ≤ 0
+  - $\mathit{BE} / \mathit{ME}_t$, $\mathit{BE}$ = common equity `TR.F.ShHoldEqCom`; missing if $\mathit{BE} \le 0$
   - sources: [fama-2015-five-factor], [lewellen-2015-cross-section-expected-returns] (latest book equity over current market equity, as here)
 - 6 Operating profitability — profitability
-  - `(revenue − COGS − SG&A − interest expense)_TTM / BE`; missing if BE ≤ 0
+  - $(\text{revenue} - \text{COGS} - \text{SG\&A} - \text{interest expense})_\text{TTM} / \mathit{BE}$; missing if $\mathit{BE} \le 0$
   - missing expense items = 0 (project rule; revenue required), so banks are defined
   - fields: `TR.F.TotRevenue`, `TR.F.COGSTot`, `TR.F.SGATot`, `TR.F.IntrExpn`
   - sources: [fama-2015-five-factor] (definition), [gu-2020-empirical-asset-pricing-ml]; large-stock evidence is for return on assets [lewellen-2015-cross-section-expected-returns]
 - 7 Short-term reversal (1-month return) — reversal
-  - `close_t / close_{t−21} − 1`
+  - $P_t / P_{t-21} - 1$
   - read together with share turnover
   - sources: [gu-2020-empirical-asset-pricing-ml] (top predictor; only after positive months in large stocks), [medhat-2022-short-term-momentum]
 - 8 Share turnover (1 month) — liquidity
-  - `Σ volume_{t−20..t} / shares_t`
+  - $\sum_{s=t-20}^{t} V_s / S_t$
   - data: LSEG volume, shares outstanding
   - sources: [gu-2020-empirical-asset-pricing-ml], [medhat-2022-short-term-momentum]
 - 9 News sentiment — sentiment
-  - `Σ_k w_k · buzz_{d−k} · sentiment_{d−k} / Σ_k w_k · buzz_{d−k}`, k = 0..29 days, `w_k = 0.5^{k/7}`; missing if no buzz in the window
+  - $\dfrac{\sum_{k=0}^{29} w_k \, b_{d-k} \, s_{d-k}}{\sum_{k=0}^{29} w_k \, b_{d-k}}$, $w_k = 0.5^{k/7}$; missing if no buzz in the window
   - half-life 7 days: weekly sentiment predicts returns for 13 weeks, daily for 1–2 days; biweekly and monthly aggregation work too [heston-2017-news-vs-sentiment]
-  - data: MarketPsych daily `sentiment` (net positive references / buzz, in [−1, 1]) and `buzz`, news + social
+  - data: MarketPsych daily `sentiment` $s_d$ (net positive references / buzz, in $[-1, 1]$) and `buzz` $b_d$, news + social
   - sources: [tetlock-2008-more-than-words] (negative news words also predict low earnings), [heston-2017-news-vs-sentiment] (negative news drifts for a quarter, positive within a week)
 - 10 Media attention (abnormal buzz) — attention
-  - `log(1 + B_d) − log(1 + median(B_{d−7}, B_{d−14}, …, B_{d−56}))`, `B_d` = buzz summed over the 7 days ending d
+  - $\log(1 + B_d) - \log\big(1 + \operatorname{median}(B_{d-7}, B_{d-14}, \dots, B_{d-56})\big)$, $B_d = \sum_{k=0}^{6} b_{d-k}$ = buzz summed over the 7 days ending $d$
   - abnormal search-volume construction of [da-2011-in-search-of-attention]: this week against the median of the prior 8 weeks, which removes trends and is comparable across stocks
   - abnormal, not level: every top-50 firm is covered, buzz tracks size, and median buzz rose 2.9× from 1998 to 2022
-  - data: MarketPsych daily `buzz` (count of news + social references)
+  - data: MarketPsych daily `buzz` $b_d$ (count of news + social references)
   - sources: [da-2011-in-search-of-attention], [heston-2017-news-vs-sentiment]
   - effects are concentrated in smaller stocks; expect little in the top 50
 - 11 Asset growth — investment
-  - `assets_q / assets_{q−4} − 1`, `TR.F.TotAssets`
+  - $A_q / A_{q-4} - 1$, $A$ = total assets `TR.F.TotAssets`
   - sources: [fama-2015-five-factor], [gu-2020-empirical-asset-pricing-ml]
   - weak in big stocks
 - 12 Sales-to-price — value (backup)
-  - `revenue_TTM / ME_t`, `TR.F.TotRevenue`
+  - $\text{revenue}_\text{TTM} / \mathit{ME}_t$, `TR.F.TotRevenue`
   - sources: [gu-2020-empirical-asset-pricing-ml], [lewellen-2015-cross-section-expected-returns]
   - defined when book equity ≤ 0 (buyback-heavy firms), where book-to-market is missing
 
 ## Normalization
 
 - one scheme for all models: per date, across that date's top-50 members
-- rank each feature, map to [−1, 1]: `2 · (rank − 1) / (N − 1) − 1`, ties averaged [gu-2020-empirical-asset-pricing-ml]
+- rank each feature, map to $[-1, 1]$: $2 \cdot (\operatorname{rank} - 1) / (N - 1) - 1$, ties averaged [gu-2020-empirical-asset-pricing-ml]
   - robust to outliers and skew (buzz, turnover, volatility) without winsorizing
   - removes common trends: media volume growth, the falling primary-exchange volume share, volatility regimes
   - scale-free across features; bounded input for the RL network
