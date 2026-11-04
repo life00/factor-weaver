@@ -10,7 +10,7 @@ lseg:
 yahoo:
   prices_out: data/raw/yahoo/prices
   extra_prices_out: data/interim/extra_prices.parquet
-  extra_symbols: ["^GSPC", "^VIX", "^IRX"] # index/yield series; stock prices are LSEG-only
+  extra_symbols: ["^SP500TR", "^VIX", "^IRX"] # index/yield series; stock prices are LSEG-only
 
 universe:
   top_n: 50

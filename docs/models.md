@@ -53,8 +53,8 @@ flowchart LR
 ## index_buy_hold — S&P500
 
 - passive market baseline
-- single `^GSPC` purchase at window start (single cost event), never rebalanced
-- `^GSPC` is a price index (no dividends) — footnote in the thesis
+- single `^SP500TR` purchase at window start (single cost event), never rebalanced
+- `^SP500TR` is the total-return index (dividends reinvested), consistent with the dividend-adjusted stock prices
 
 ## mean_variance
 

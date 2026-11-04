@@ -13,7 +13,7 @@ identical simulated trading environment:
 | # | Model             | Type        | Replication target                        | Factors used                  |
 |---|-------------------|-------------|-------------------------------------------|-------------------------------|
 | 1 | `equal_weight`    | naive       | DeMiguel et al. (2009)                    | none                          |
-| 2 | `index_buy_hold`  | market      | S&P500 (`^GSPC`)                          | none                          |
+| 2 | `index_buy_hold`  | market      | S&P500 TR (`^SP500TR`)                    | none                          |
 | 3 | `mean_variance`   | classical   | Markowitz (1952)                          | prices                       |
 | 4 | `ml_forecast`     | ML          | Gu, Kelly & Xiu (2020) + Ma et al. (2021) | technical, fundamental, behavioral |
 | 5 | `black_litterman` | econometric | Kolm & Ritter (2021)                      | technical, fundamental, behavioral |
@@ -37,7 +37,7 @@ Equivalence guarantees — the central design decision:
    long-tidy `(date, ric, *features)` for all universe members 1998–2026 —
    technical, fundamental (LSEG, report-date-anchored forward-fill), behavioral
    (MarketPsych, time-decayed) — strictly no look-ahead.
-2. `data/interim/extra_prices.parquet` (implemented): `^GSPC`, `^VIX`, `^IRX`
+2. `data/interim/extra_prices.parquet` (implemented): `^SP500TR`, `^VIX`, `^IRX`
    from `yahoo.extra_symbols` in `config/data.yaml`. `^IRX` is a 13-week T-bill
    annualized YIELD, not a price — the engine converts it to a daily cash
    return (yield / 100 / 252).
@@ -58,7 +58,7 @@ src/factor_weaver/
 │   └── build/              # data/raw -> data/interim|processed/
 ├── models/                 # MODULE 2: ALL weight-producing models
 │   ├── __init__.py         # weight-provider interface + registry (name -> factory)
-│   ├── simple.py           # equal_weight (1/N), index_buy_hold (^GSPC)
+│   ├── simple.py           # equal_weight (1/N), index_buy_hold (^SP500TR)
 │   ├── optimize.py         # shared tangency(mu, cov, rf, cap) via PyPortfolioOpt
 │   ├── mean_variance.py    # rolling mu + Ledoit-Wolf cov -> tangency
 │   ├── black_litterman.py # Kolm & Ritter (2021) BLB
@@ -103,9 +103,9 @@ panel path, MLflow) + `config/models.yaml` (per-model params).
 
 - **equal_weight**: 1/N over current universe members at each rebalance; the
   hardest naive baseline (DeMiguel et al. 2009).
-- **index_buy_hold**: single `^GSPC` purchase at window start (single cost
-  event), never rebalanced. `^GSPC` is a price index (no dividends) —
-  footnoted in the thesis.
+- **index_buy_hold**: single `^SP500TR` purchase at window start (single cost
+  event), never rebalanced. Total-return index, consistent with the
+  dividend-adjusted stock prices.
 
 ### 5.2 `optimize.py` — shared tangency optimizer
 

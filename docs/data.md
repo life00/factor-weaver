@@ -68,7 +68,7 @@ Bidirectional arrows mark builds that both read and write the same store. Fetch 
     - sentiment — `sentiment` (net polarity) → news sentiment
 - extra assets
   - risk-free - `^IRX` (T-bill annualized yield, not a price)
-  - S&P500 stock index - `^GSPC`
+  - S&P500 total-return index - `^SP500TR` (dividends reinvested, like the stock prices)
 - market-wide indicators (engine/benchmark inputs, not model features)
   - VIX - `^VIX`
 
@@ -80,7 +80,7 @@ Bidirectional arrows mark builds that both read and write the same store. Fetch 
 - price
   - LSEG data API — daily OHLCV, primary source; RTS-adjusted (splits, spin-offs) with cash dividends folded in from `TR.TotalReturn`; per-RIC cache in `data/raw/lseg/prices/`; window `lseg.start`..`universe.end` for indicator lookback
   - PermID-resolved, universe share line: each company's US consolidated RIC (LSEG symbology) when it is the universe line (KO.N → KO), else the universe RIC; the other is the fallback (renames: PSKY.OQ → SKYD.K); a series must cover the membership window; rows labelled with the universe RIC
-  - <https://finance.yahoo.com/> via `yfinance` — only the configured `extra_symbols` (`^GSPC`, `^VIX`, `^IRX`), never universe stocks; `extra-prices` build step writes them to `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
+  - <https://finance.yahoo.com/> via `yfinance` — only the configured `extra_symbols` (`^SP500TR`, `^VIX`, `^IRX`), never universe stocks; `extra-prices` build step writes them to `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
 - fundamental
   - LSEG data API — quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one long parquet per RIC: `ric, field, value, period_end, fiscal_period, source_date, fund_upd_type, original_announcement_date`; as originally reported, USD; window `lseg.start`..`universe.end` for 36-month lookback); `build/fundamental.py` writes one row per stock-quarter at the availability date above (TTM flows, latest-quarter stocks, market equity from quarter-end cap and closes); output `data/interim/fundamental.parquet`; `panel` integration not implemented
 - technical

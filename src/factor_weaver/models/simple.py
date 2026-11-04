@@ -13,8 +13,8 @@ def equal_weight(t: pd.Timestamp, members: list[str], hist: pd.DataFrame) -> dic
 
 
 def index_buy_hold(t: pd.Timestamp, members: list[str], hist: pd.DataFrame) -> dict[str, float]:
-    """Buy ^GSPC once at window start (single cost event), never rebalance.
+    """Buy ^SP500TR once at window start (single cost event), never rebalance.
 
-    Note: ^GSPC is a price index (no dividends).
+    Total-return index (dividends reinvested), matching the dividend-adjusted stock prices.
     """
     ...
