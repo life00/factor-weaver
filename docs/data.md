@@ -19,7 +19,7 @@
 - alignment
   - fundamentals: one row per stock-quarter at `max(source_date, original_announcement_date)`, else 60 days after period end capped before the next period; TTM flows, latest-quarter stocks, as-reported (no look-ahead)
   - technical: daily rows from adjusted prices, market cap, and quarterly shares
-  - behavioral: sparse daily rows (no row = no coverage); panel time-decay not implemented
+  - behavioral: daily calendar rows; 7-day sentiment and abnormal buzz from MarketPsych day $d$ (24 h to 15:30 ET), usable at the close of $d$
 
 ## Flow
 
@@ -39,7 +39,7 @@ flowchart LR
   raw --> bprices["build: prices<br/>LSEG OHLCV per universe RIC"]
   raw --> bextra["build: extra-prices<br/>Yahoo extra series"]
   raw --> bfund["build: fundamental<br/>quarterly features"]
-  raw --> bbeh["build: behavioral<br/>sparse PermID → RIC rows"]
+  raw --> bbeh["build: behavioral<br/>sentiment · attention"]
   raw --> tech["build: technical<br/>daily features"]
   univ --> interim[("data/interim/")]
   bextra --> interim
@@ -86,7 +86,7 @@ Bidirectional arrows mark builds that both read and write the same store. Fetch 
 - technical
   - computed in `build/technical.py` from `prices.parquet`, market cap, and quarterly shares (`docs/features.md`); output `data/interim/technical.parquet` with daily rows
 - behavioral
-  - LSEG MarketPsych Analytics — file API raw slices in `data/raw/marketpsych/`; `build/behavioral.py` clips to `[marketpsych.start, end)`, collapses duplicate slices, and maps each PermID series to its universe RIC(s); sparse output `data/interim/behavioral.parquet`
+  - LSEG MarketPsych Analytics — file API raw slices in `data/raw/marketpsych/`; `build/behavioral.py` clips to `[marketpsych.start, end)`, collapses duplicate slices, computes `sentiment` and `attention` per PermID on every calendar day (`docs/features.md`), and maps them to the universe RIC(s); output `data/interim/behavioral.parquet`
 
 ## Issues
 
@@ -142,5 +142,11 @@ Bidirectional arrows mark builds that both read and write the same store. Fetch 
 
 ### Behavioral
 
-- **Sparse rows are intentional**: companies only have rows on non-zero-buzz days, so
-  `behavioral.parquet` has no row for a day without media coverage; history starts 1998-01
+- **No row = zero buzz**: the vendor has no row for a day without media coverage; the
+  build zero-fills before the rolling windows. History starts 1998-01, so sentiment starts
+  1998-01-07 and attention 1998-03-04 (full windows)
+- **No vendor row in 63 days = missing, not zero attention**: catches unmapped RICs
+  (T.N^K05, GM.N^F09, S.N^G13, DELL.OQ^J13, VIAV.OQ, BAC.N^I98, AIT.N^J99, AN.N^L98) and
+  coverage gaps (GOOGL 2006–2014); thinly covered names (buzz ≈ 1–5) are not caught
+- **NaN is left to `panel`**: the build outputs undefined features as NaN; the fill
+  (0 after ranking) happens across features in `panel`
