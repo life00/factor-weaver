@@ -8,6 +8,7 @@ import zipfile
 from email.message import Message
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -534,62 +535,127 @@ def test_download_resumes_after_reset_with_range(tmp_path, monkeypatch):
     assert not path.with_name(path.name + ".tmp").exists()
 
 
-def test_build_behavioral_broadcasts_permid_to_each_ric(tmp_path):
-    assets_path = tmp_path / "assets.parquet"
+def _mp_rows(path, dates, buzz, sentiment, permid="5030853586"):
     pd.DataFrame(
         {
-            "ric": ["GOOG.OQ", "GOOGL.OQ", "MSFT.OQ"],
-            "permid": ["5030853586", "5030853586", "1111111111"],
+            "permid": [permid] * len(dates),
+            "date": pd.to_datetime(list(dates)),
+            "source": ["news_social"] * len(dates),
+            "buzz": buzz,
+            "sentiment": sentiment,
         }
-    ).to_parquet(assets_path, index=False)
+    ).to_parquet(path, index=False)
+
+
+def _assets(tmp_path, rics=("GOOG.OQ",), permids=("5030853586",)):
+    path = tmp_path / "assets.parquet"
+    pd.DataFrame({"ric": list(rics), "permid": list(permids)}).to_parquet(path, index=False)
+    return path
+
+
+def _build(tmp_path, assets_path, raw_dir, start, end):
+    cfg = _cfg(tmp_path, assets_path, raw_dir, start=start, end=end)
+    build_behavioral(cfg)
+    return pd.read_parquet(cfg["marketpsych"]["out"])
+
+
+def _days(start, n):
+    return pd.date_range(start, periods=n, freq="D")
+
+
+def test_build_behavioral_broadcasts_permid_to_each_ric(tmp_path):
+    assets_path = _assets(
+        tmp_path,
+        rics=("GOOG.OQ", "GOOGL.OQ", "MSFT.OQ"),
+        permids=("5030853586", "5030853586", "1111111111"),
+    )
     raw_dir = tmp_path / "mp"
     raw_dir.mkdir()
-    pd.DataFrame(
-        {
-            "permid": ["5030853586", "5030853586"],
-            "date": pd.to_datetime(["2022-02-03", "2022-02-04"]),
-            "source": ["news_social", "news_social"],
-            "buzz": [3.0, 4.0],
-            "sentiment": [0.2, -0.1],
-        }
-    ).to_parquet(raw_dir / "2022-02.parquet", index=False)
+    _mp_rows(raw_dir / "2022-02.parquet", ["2022-02-03", "2022-02-04"], [3.0, 4.0], [0.2, -0.1])
 
-    cfg = _cfg(tmp_path, assets_path, raw_dir, start="2022-02-01", end="2022-03-01")
-    build_behavioral(cfg)
-    out = pd.read_parquet(cfg["marketpsych"]["out"])
+    out = _build(tmp_path, assets_path, raw_dir, "2022-02-01", "2022-03-01")
     assert list(out.columns) == OUT_COLS
-    assert len(out) == 4  # 2 RICs × 2 dates
     assert set(out["ric"]) == {"GOOG.OQ", "GOOGL.OQ"}
-    got = out.sort_values("date").groupby("ric")["buzz"].apply(tuple)
-    assert got.to_dict() == {"GOOG.OQ": (3.0, 4.0), "GOOGL.OQ": (3.0, 4.0)}
+    goog, googl = (
+        out[out["ric"] == ric].drop(columns="ric").reset_index(drop=True)
+        for ric in ("GOOG.OQ", "GOOGL.OQ")
+    )
+    pd.testing.assert_frame_equal(goog, googl)
+    # windows ending 02-07..02-10 hold a buzz day; attention needs 63 days of history
+    assert goog["date"].tolist() == list(_days("2022-02-07", 4))
+    assert goog["sentiment"].iloc[0] == pytest.approx((3 * 0.2 - 4 * 0.1) / 7)
+    assert goog["attention"].isna().all()
 
 
 def test_build_behavioral_prefers_archive_slice_over_live(tmp_path):
-    assets_path = tmp_path / "assets.parquet"
-    pd.DataFrame({"ric": ["GOOG.OQ"], "permid": ["5030853586"]}).to_parquet(
-        assets_path, index=False
-    )
+    assets_path = _assets(tmp_path)
     raw_dir = tmp_path / "mp"
     raw_dir.mkdir()
-    _slice(store.cache_path(raw_dir, _LIVE), ["1998-02-03"], [9.0])
-    _slice(store.cache_path(raw_dir, _ARCHIVE), ["1998-02-03"], [1.0])
+    _mp_rows(store.cache_path(raw_dir, _LIVE), ["1998-02-03"], [9.0], [-0.5])
+    _mp_rows(store.cache_path(raw_dir, _ARCHIVE), ["1998-02-03"], [1.0], [0.5])
 
-    cfg = _cfg(tmp_path, assets_path, raw_dir, start="1998-02-01", end="1998-03-01")
-    build_behavioral(cfg)
-    out = pd.read_parquet(cfg["marketpsych"]["out"])
-    assert out["buzz"].tolist() == [1.0]  # the archive row supersedes the live slice
+    out = _build(tmp_path, assets_path, raw_dir, "1998-02-01", "1998-03-01")
+    assert out["sentiment"].iloc[0] == pytest.approx(0.5)  # the archive row supersedes
 
 
 def test_build_behavioral_clips_to_configured_window(tmp_path):
-    assets_path = tmp_path / "assets.parquet"
-    pd.DataFrame({"ric": ["GOOG.OQ"], "permid": ["5030853586"]}).to_parquet(
-        assets_path, index=False
-    )
+    assets_path = _assets(tmp_path)
     raw_dir = tmp_path / "mp"
     raw_dir.mkdir()
-    _slice(store.cache_path(raw_dir, _ARCHIVE), ["1998-01-15", "1998-02-10"], [1.0, 2.0])
+    _mp_rows(
+        store.cache_path(raw_dir, _ARCHIVE), ["1998-01-31", "1998-02-03"], [100.0, 1.0], [-1.0, 0.5]
+    )
 
-    cfg = _cfg(tmp_path, assets_path, raw_dir, start="1998-02-01", end="1998-03-01")
-    build_behavioral(cfg)
-    out = pd.read_parquet(cfg["marketpsych"]["out"])
-    assert out["date"].tolist() == [pd.Timestamp("1998-02-10")]  # the archive covers all of January
+    out = _build(tmp_path, assets_path, raw_dir, "1998-02-01", "1998-03-01")
+    assert out["date"].iloc[0] == pd.Timestamp("1998-02-07")  # first full week after start
+    assert out["sentiment"].iloc[0] == pytest.approx(0.5)  # the January row stays out
+
+
+def test_build_behavioral_sentiment_pools_buzz_weighted_week(tmp_path):
+    assets_path = _assets(tmp_path)
+    raw_dir = tmp_path / "mp"
+    raw_dir.mkdir()
+    dates = [*_days("2022-01-01", 2), *_days("2022-01-10", 7)]
+    buzz = [2.0, 2.0, *[0.0] * 7]
+    sentiment = [0.5, float("nan"), *[float("nan")] * 7]
+    _mp_rows(raw_dir / "2022-01.parquet", dates, buzz, sentiment)
+
+    out = _build(tmp_path, assets_path, raw_dir, "2022-01-01", "2022-02-01")
+    got = out.set_index("date")["sentiment"]
+    # buzz without polar references counts as net 0: (2·0.5 + 2·0) / 4
+    assert got[pd.Timestamp("2022-01-07")] == pytest.approx(0.25)
+    assert pd.Timestamp("2022-01-16") not in got.index  # a week of zero buzz: undefined
+
+
+def test_build_behavioral_attention_against_prior_eight_week_median(tmp_path):
+    assets_path = _assets(tmp_path)
+    raw_dir = tmp_path / "mp"
+    raw_dir.mkdir()
+    days = _days("2022-01-01", 70)
+    buzz = [float(i + 1) for i in range(70)]
+    _mp_rows(raw_dir / "2022.parquet", days, buzz, [0.1] * 70)
+
+    out = _build(tmp_path, assets_path, raw_dir, "2022-01-01", "2022-04-01")
+    got = out.set_index("date")["attention"]
+
+    def week(t):  # buzz summed over the 7 days ending on day index t
+        return sum(buzz[t - 6 : t + 1])
+
+    prior = sorted(week(62 - 7 * k) for k in range(1, 9))
+    expected = np.log1p(week(62)) - np.log1p((prior[3] + prior[4]) / 2)
+    assert np.isnan(got[days[61]])  # day 62: the eighth prior week is incomplete
+    assert got[days[62]] == pytest.approx(expected)
+
+
+def test_build_behavioral_no_vendor_rows_in_window_is_missing(tmp_path):
+    assets_path = _assets(tmp_path)
+    raw_dir = tmp_path / "mp"
+    raw_dir.mkdir()
+    days = _days("2022-01-01", 120)
+    _mp_rows(raw_dir / "2022.parquet", [*days[:10], days[110]], [1.0] * 10 + [5.0], [0.1] * 11)
+
+    out = _build(tmp_path, assets_path, raw_dir, "2022-01-01", "2022-05-01")
+    got = out.set_index("date")["attention"]
+    assert got[days[71]] == pytest.approx(0.0)  # quiet but covered: zero buzz is real
+    assert not set(days[72:110]) & set(got.index)  # 63 days without a row: no coverage
+    assert got[days[110]] == pytest.approx(np.log1p(5.0))
