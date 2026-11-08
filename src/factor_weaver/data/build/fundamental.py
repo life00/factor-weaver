@@ -259,10 +259,8 @@ def build_fundamental(cfg: dict[str, Any]) -> None:
     rows = latest_rows(rows)
     cols = ["date", "ric", "permid", *FUNDAMENTAL_FEATURES]
     out = rows.loc[:, cols].copy()
-    out = out.loc[
-        (out["date"] >= pd.Timestamp(cfg["universe"]["start"]))
-        & (out["date"] < pd.Timestamp(cfg["universe"]["end"]))
-    ]
+    # no lower clip: reports filed before universe.start carry into its first quarter
+    out = out.loc[out["date"] < pd.Timestamp(cfg["universe"]["end"])]
     out = out.sort_values(["date", "ric"]).reset_index(drop=True)
     if out.empty:
         raise RuntimeError("no fundamental features computed")

@@ -13,7 +13,7 @@ Per PermID on every calendar day d (MarketPsych publishes on weekends), with b =
   7 days ending d [da-2011-in-search-of-attention]
 Full windows only. Both are NaN without any vendor row in the 63 days the attention
 window reads: an unmapped or uncovered company, not zero attention. NaN = undefined;
-the panel step fills it. The universe keeps one RIC per PermID per quarter; if a
+the clean step fills it. The universe keeps one RIC per PermID per quarter; if a
 company's RIC changes over time, its features are broadcast to each of its RICs.
 """
 

@@ -57,7 +57,11 @@ fundamental:
 technical:
   out: data/interim/technical.parquet
 
-panel:
+align:
+  out: data/interim/panel.parquet
+  fundamental_max_age_days: 365 # >1y means several missed filings (10-Q due 40-45d, 10-K 60-90d)
+
+clean:
   out: data/processed/panel.parquet
 
 split:
