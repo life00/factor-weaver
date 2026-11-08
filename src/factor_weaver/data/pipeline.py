@@ -87,7 +87,7 @@ STEPS: tuple[Step, ...] = (
         lseg.fetch_lseg_prices,
         "fetch",
         ins=("universe.assets_out",),
-        outs=("lseg.prices_out",),
+        outs=("lseg.prices_out", "lseg.dividends_out"),
         per_item=True,
     ),
     Step(
@@ -117,7 +117,7 @@ STEPS: tuple[Step, ...] = (
         "prices",
         build_prices.build_prices,
         "build",
-        ins=("universe.assets_out", "lseg.prices_out"),
+        ins=("universe.assets_out", "lseg.prices_out", "lseg.dividends_out"),
         outs=("prices.out",),
     ),
     Step(

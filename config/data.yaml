@@ -6,6 +6,7 @@ lseg:
   market_cap_out: data/raw/lseg/market_cap.parquet
   prices_out: data/raw/lseg/prices
   fundamentals_out: data/raw/lseg/fundamentals
+  dividends_out: data/raw/lseg/dividends # dividend records; applied in build prices
 
 yahoo:
   prices_out: data/raw/yahoo/prices

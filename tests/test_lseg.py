@@ -2,7 +2,13 @@
 
 import pandas as pd
 
-from factor_weaver.data.fetch.lseg import _dividend_adjust, _normalize_history, fetch_history
+from factor_weaver.data.fetch.lseg import (
+    DIVIDEND_COLS,
+    PRICE_CACHE_COLS,
+    _normalize_history,
+    fetch_dividends,
+    fetch_history,
+)
 
 _FIELDS = {
     "OPEN_PRC": [1.0, 2.0],
@@ -50,7 +56,7 @@ class _FakeLD:
         return self.frames[universe]
 
     def get_data(self, universe, **kwargs):
-        return pd.DataFrame()  # no TR.TotalReturn → prices stay unadjusted
+        return pd.DataFrame()  # no TR.TotalReturn / dividend records
 
 
 def _one_day_frame():
@@ -61,20 +67,20 @@ def _one_day_frame():
 def test_fetch_history_queries_retired_rics_and_normalizes():
     ld = _FakeLD({"TWX.N^A01": _one_day_frame()})
     out = fetch_history(ld, "TWX.N^A01", "1994-01-01", "2026-01-01")
-    assert ld.calls == ["TWX.N^A01"]
+    assert ld.calls == ["TWX.N^A01", "TWX.N^A01"]  # RTS, then unadjusted
     assert not out.empty
     assert set(out["ric"]) == {"TWX.N^A01"}
 
 
-def test_dividend_adjust_back_adjusts_before_ex_date_only():
-    # 0.50 dividend goes ex on day 2: price return 9.5/10, total return 0%
-    dates = pd.to_datetime(["2020-01-02", "2020-01-03", "2020-01-06"])
-    df = pd.DataFrame(
-        {"date": dates, "ric": "X.N", "open": [10.0, 9.5, 9.5], "high": [10.0, 9.5, 9.7],
-         "low": [10.0, 9.5, 9.5], "close": [10.0, 9.5, 9.6], "volume": [1, 2, 3]}
+def test_fetch_history_adds_raw_dividend_inputs():
+    ld = _FakeLD({"X.N": _one_day_frame()})
+    out = fetch_history(ld, "X.N", "2020-01-01", "2020-02-01")
+    assert list(out.columns) == PRICE_CACHE_COLS
+    assert out["close_unadj"].tolist() == [1.0]
+    assert out["total_return"].isna().all()
+
+
+def test_fetch_dividends_empty_has_canonical_columns():
+    assert list(fetch_dividends(_FakeLD({}), "X.N", "2020-01-01", "2020-02-01").columns) == (
+        DIVIDEND_COLS
     )
-    tr = pd.DataFrame({"Date": dates.strftime("%Y-%m-%d"), "Total Return": [None, 0.0, 1.0526316]})
-    out = _dividend_adjust(df, tr)
-    assert out["close"].round(6).tolist() == [9.5, 9.5, 9.6]  # day 1 scaled by 0.95
-    assert out["open"].round(6).tolist() == [9.5, 9.5, 9.5]
-    assert out["volume"].tolist() == [1, 2, 3]

@@ -86,7 +86,8 @@ Bidirectional arrows mark builds that both read and write the same store. Fetch 
   - LSEG data API — S&P500 constituent list, joiner/leaver history, RIC mapping; market cap via `TR.CompanyMarketCap` (fallback `TR.F.MktCap`) for top-50 selection
   - `build/universe.py` also writes `data/interim/assets.parquet`, the distinct RIC → ticker/name/permid registry used by the price steps
 - price
-  - LSEG data API — daily OHLCV, primary source; RTS-adjusted (splits, spin-offs) with cash dividends folded in from `TR.TotalReturn`; per-RIC cache in `data/raw/lseg/prices/`; window `lseg.start`..`universe.end` for indicator lookback
+  - LSEG data API — daily OHLCV, primary source; RTS-adjusted (splits, spin-offs), plus the unadjusted close and `TR.TotalReturn` (comparison only); per-RIC cache in `data/raw/lseg/prices/`; window `lseg.start`..`universe.end` for indicator lookback
+  - LSEG dividend records (`TR.DivExDate`, `TR.DivUnadjustedGross`, type, payment type) per RIC in `data/raw/lseg/dividends/`; `build prices` applies them as cash-dividend adjustment
   - PermID-resolved, universe share line: each company's US consolidated RIC (LSEG symbology) when it is the universe line (KO.N → KO), else the universe RIC; the other is the fallback (renames: PSKY.OQ → SKYD.K); a series must cover the membership window; rows labelled with the universe RIC
   - <https://finance.yahoo.com/> via `yfinance` — only the configured `extra_symbols` (`^SP500TR`, `^VIX`, `^IRX`), never universe stocks; `extra-prices` build step writes them to `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
 - fundamental
@@ -116,10 +117,14 @@ Bidirectional arrows mark builds that both read and write the same store. Fetch 
   FSR.N^B01 (no content) shares USB.N's PermID, so PermID dedup keeps USB.N instead. There is
   no other stock-price source: a RIC LSEG cannot serve over its membership window has no
   cache, and `build prices` lists it as missing
-- **Dividends are derived**: LSEG RTS adjusts splits and spin-offs but not cash dividends
-  (closes equal Yahoo's unadjusted Close). `fetch_history` back-adjusts OHLC by each day's
-  price-return / total-return factor from `TR.TotalReturn`, the basis of Yahoo's auto_adjust;
-  a RIC without `TR.TotalReturn` stays dividend-unadjusted with a warning
+- **Dividends are derived**: LSEG RTS adjusts splits, spin-offs and some specials but not
+  regular cash dividends. `build prices` back-adjusts OHLC from the cash dividend records:
+  ex-day factor `U / (U + D)` (unadjusted close and gross dividend, reinvested at the
+  ex-date close), skipping dividends RTS already removed (COST 2012-12-06); a RIC without
+  usable records stays dividend-unadjusted. `TR.TotalReturn` is cached but unused: it drops
+  dividends (WB^A09, MER^A09), double counts specials and is noise for JCI^I16. Records have
+  their own faults: AAPL's are zero in 2012–15 and date-shifted after (2016 shows 2012's
+  pre-split amounts); retired AIT, AN, BAC^I98, MOB, WLA have none
 - **Consolidated volume needs consolidated RICs**: exchange RICs (`.N`, `.OQ`) count their own
   venue only, 25–35% of consolidated volume since 2010; the PermID query returns consolidated
   RICs (AAPL.O, JNJ). NASDAQ volume before 2004 is not halved for double counting (Gao and

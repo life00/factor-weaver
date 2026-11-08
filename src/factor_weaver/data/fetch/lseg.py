@@ -2,8 +2,9 @@
 
 S&P500 membership history is reconstructed (in universe.py) from the current
 constituent snapshot as anchor plus joiner/leaver events applied backwards.
-Daily prices are cached per universe RIC under <lseg.prices_out>; cached files are
-never refetched unless the pipeline runs with --refresh.
+Raw daily prices and dividend records are cached per universe RIC under <lseg.prices_out>
+and <lseg.dividends_out>; cached files are never refetched unless the pipeline runs with
+--refresh.
 """
 
 import logging
@@ -77,16 +78,16 @@ _FUND_OUT_COLS = [
 ]
 _FUND_COLUMNS = pd.Index(_FUND_OUT_COLS)
 
-_FUND_IS_REQUEST = [
-    f"{field}{suffix}"
-    for field in _FUND_IS_FIELDS
-    for suffix in _FUND_SUFFIXES
-] + _FUND_META_FIELDS + ["TR.ISOriginalAnnouncementDate"]
-_FUND_BS_REQUEST = [
-    f"{field}{suffix}"
-    for field in _FUND_BS_FIELDS
-    for suffix in _FUND_SUFFIXES
-] + _FUND_META_FIELDS + ["TR.BSOriginalAnnouncementDate"]
+_FUND_IS_REQUEST = (
+    [f"{field}{suffix}" for field in _FUND_IS_FIELDS for suffix in _FUND_SUFFIXES]
+    + _FUND_META_FIELDS
+    + ["TR.ISOriginalAnnouncementDate"]
+)
+_FUND_BS_REQUEST = (
+    [f"{field}{suffix}" for field in _FUND_BS_FIELDS for suffix in _FUND_SUFFIXES]
+    + _FUND_META_FIELDS
+    + ["TR.BSOriginalAnnouncementDate"]
+)
 
 
 def _api_date(value: str | date) -> str:
@@ -231,10 +232,12 @@ def resolve_permids(ld: Any, permids: list[str]) -> dict[str, str]:
     return {str(k): str(v) for k, v in df["RIC"].dropna().items()}
 
 
-# RTS back-adjusts price and volume for splits and spin-offs but not cash dividends (closes
-# match Yahoo's unadjusted Close); fetch_history folds dividends in from TR.TotalReturn.
+# RTS back-adjusts price and volume for splits, spin-offs and some special dividends, but not
+# regular cash dividends; build/prices.py applies those from the cached dividend records.
 ADJUSTMENTS = "RTS"
 _TR_FIELDS = ["TR.TotalReturn.date", "TR.TotalReturn"]
+_DIV_FIELDS = ["TR.DivExDate", "TR.DivUnadjustedGross", "TR.DivType", "TR.DivPaymentType"]
+DIVIDEND_COLS = ["ex_date", "gross", "div_type", "payment_type"]
 _PRICE_FIELDS = ["OPEN_PRC", "HIGH_1", "LOW_1", "TRDPRC_1", "ACVOL_UNS"]
 _PRICE_RENAME = {
     "OPEN_PRC": "open",
@@ -244,6 +247,7 @@ _PRICE_RENAME = {
     "ACVOL_UNS": "volume",
 }
 _PRICE_OUT_COLS = ["date", "ric", "open", "high", "low", "close", "volume"]
+PRICE_CACHE_COLS = [*_PRICE_OUT_COLS, "close_unadj", "total_return"]
 
 
 def _normalize_history(df: pd.DataFrame, ric: str) -> pd.DataFrame:
@@ -256,32 +260,20 @@ def _normalize_history(df: pd.DataFrame, ric: str) -> pd.DataFrame:
     return df.sort_values(by="date").reset_index(drop=True)
 
 
-def _dividend_adjust(df: pd.DataFrame, total_return: pd.DataFrame) -> pd.DataFrame:
-    """Back-adjust OHLC for cash dividends, as Yahoo's auto_adjust does.
-
-    A day's factor is its price return over its total return: 1 except on distribution
-    days (noise is ~1e-8; spin-off days match because RTS already adjusts them). Each
-    day's prices take the product of all later factors.
-    """
-    tr = pd.Series(
-        total_return["Total Return"].astype(float).to_numpy(),
-        index=pd.to_datetime(total_return["Date"]).dt.normalize(),
-    )
-    tr = tr.loc[~tr.index.duplicated(keep="last")]  # retired RICs repeat rows past delisting
-    gross = 1 + tr.reindex(df["date"].dt.normalize()).to_numpy() / 100
-    factor = pd.Series(df["close"].div(df["close"].shift(1)).to_numpy() / gross)
-    factor = factor.where(factor < 1 - 1e-6, 1.0)  # a distribution only lowers the factor
-    later = factor.iloc[::-1].cumprod().iloc[::-1].shift(-1, fill_value=1.0)
-    cols = ["open", "high", "low", "close"]
-    df[cols] = df[cols].mul(later.to_numpy(), axis=0)
-    return df
+def _by_date(values: Any, dates: Any) -> pd.Series:
+    """A float series keyed by naive calendar date (first of any repeated date)."""
+    day = pd.to_datetime(pd.Series(dates), utc=True).dt.tz_convert(None).dt.normalize()
+    s = pd.Series(pd.Series(values).astype(float).to_numpy(), index=pd.DatetimeIndex(day))
+    return s.loc[~s.index.duplicated()]  # TR repeats a date (same value) around holidays
 
 
 def fetch_history(ld: Any, ric: str, start: str, end: str) -> pd.DataFrame:
-    """Fetch split-, spin-off- and dividend-adjusted daily OHLCV for one RIC.
+    """Fetch raw daily OHLCV for one RIC plus the inputs for the dividend adjustment.
 
-    Returns the canonical (date, ric, open..volume) frame, empty when the RIC
-    has no data. Retired ^-suffixed RICs remain resolvable.
+    OHLCV is RTS-adjusted (splits, spin-offs); `close_unadj` is the unadjusted close and
+    `total_return` the TR.TotalReturn percentage, both aligned to the RTS dates. Dividends
+    are applied in build/prices.py. Empty when the RIC has no data; retired ^-suffixed
+    RICs remain resolvable.
     """
     df = _normalize_history(
         ld.get_history(
@@ -295,16 +287,43 @@ def fetch_history(ld: Any, ric: str, start: str, end: str) -> pd.DataFrame:
         ric,
     )
     if df.empty:
-        return df
+        return df.reindex(columns=PRICE_CACHE_COLS)
+    raw = ld.get_history(
+        universe=ric,
+        fields=["TRDPRC_1"],
+        interval="daily",
+        start=start,
+        end=end,
+        adjustments="unadjusted",
+    )
+    day = df["date"].dt.normalize()
+    df["close_unadj"] = _by_date(raw["TRDPRC_1"], raw.index).reindex(day).to_numpy()
     tr = ld.get_data(
         universe=[ric],
         fields=_TR_FIELDS,
         parameters={"SDate": _api_date(start), "EDate": _api_date(end), "Frq": "D"},
     )
     if tr.empty:
-        log.warning("%s: no TR.TotalReturn; prices stay dividend-unadjusted", ric)
-        return df
-    return _dividend_adjust(df, tr)
+        log.warning("%s: no TR.TotalReturn", ric)
+        df["total_return"] = float("nan")
+    else:
+        df["total_return"] = _by_date(tr["Total Return"], tr["Date"]).reindex(day).to_numpy()
+    return df
+
+
+def fetch_dividends(ld: Any, ric: str, start: str, end: str) -> pd.DataFrame:
+    """Fetch the RIC's dividend records (ex-date, unadjusted gross per share, type)."""
+    df = ld.get_data(
+        universe=[ric],
+        fields=_DIV_FIELDS,
+        parameters={"SDate": _api_date(start), "EDate": _api_date(end)},
+    )
+    if df.empty:
+        return pd.DataFrame(columns=pd.Index(DIVIDEND_COLS))
+    df = df.drop(columns="Instrument", errors="ignore").set_axis(DIVIDEND_COLS, axis=1)
+    df["ex_date"] = pd.to_datetime(df["ex_date"], errors="coerce")
+    df["gross"] = df["gross"].astype(float)
+    return df.dropna(subset=["ex_date"]).sort_values("ex_date", ignore_index=True)
 
 
 def _attempt(fn: Any) -> tuple[pd.DataFrame, str | None]:
@@ -338,13 +357,14 @@ def _covers(df: pd.DataFrame, first: Any, last: Any) -> bool:
 
 def _try_lseg(
     ld: Any, ric: str, query: str, start: str, end: str, first: Any, last: Any
-) -> tuple[pd.DataFrame, str | None]:
+) -> tuple[pd.DataFrame, pd.DataFrame, str | None]:
     """Fetch the universe share line covering first..last; rows keep the universe label.
 
     The PermID-resolved query RIC goes first only when it is the same share line as the
     universe RIC (consolidated volume); otherwise the universe RIC goes first, since
     PermIDs resolve to other classes, preferreds, bonds or when-issued lines (BRKb → BRKa).
     The other candidate is the fallback, which keeps renames working (PSKY.OQ → SKYD.K).
+    Dividend records come from the same candidate as the prices.
     """
     errors: list[str] = []
     candidates = [query, ric] if _same_line(ric, query) else [ric, query]
@@ -356,23 +376,25 @@ def _try_lseg(
             if not _same_line(ric, candidate):
                 log.warning("%s: priced from %s (different share line)", ric, candidate)
             df["ric"] = ric
-            return df, None
+            return df, fetch_dividends(ld, candidate, start, end), None
         errors.append(f"{candidate}: {err}")
-    return pd.DataFrame(), "; ".join(errors)
+    return pd.DataFrame(), pd.DataFrame(), "; ".join(errors)
 
 
 def fetch_lseg_prices(cfg: dict[str, Any]) -> None:
-    """Cache daily OHLCV per registry company (PermID-resolved, universe share line).
+    """Cache raw daily prices and dividend records per registry company.
 
-    Reads: <universe.assets_out>; window <lseg.start>..<universe.end>: the years before
-    universe.start are lookback for technical indicators
-    Writes: per-RIC cache under <lseg.prices_out>
+    PermID-resolved, universe share line. Reads: <universe.assets_out>; window
+    <lseg.start>..<universe.end>: the years before universe.start are lookback for
+    technical indicators
+    Writes: per-RIC caches under <lseg.prices_out> and <lseg.dividends_out>
     """
     assets_path = Path(cfg["universe"]["assets_out"])
     if not assets_path.exists():
         raise FileNotFoundError(f"run the universe step first; missing: {assets_path}")
     assets = pd.read_parquet(assets_path)
     cache_dir = Path(cfg["lseg"]["prices_out"])
+    div_dir = Path(cfg["lseg"]["dividends_out"])
     start, end = cfg["lseg"]["start"], cfg["universe"]["end"]
     refresh = bool(cfg.get("_refresh"))
 
@@ -381,7 +403,8 @@ def fetch_lseg_prices(cfg: dict[str, Any]) -> None:
     for row in assets.to_dict("records"):
         ric = str(row["ric"])
         path = store.cache_path(cache_dir, ric, url_quote=True)
-        if path.exists() and not refresh:
+        div_path = store.cache_path(div_dir, ric, url_quote=True)
+        if path.exists() and div_path.exists() and not refresh:
             cached += 1
             log.debug("  %s: cached", ric)
         else:
@@ -400,10 +423,11 @@ def fetch_lseg_prices(cfg: dict[str, Any]) -> None:
             for ric, permid, path, first, last in pending:
                 if permid not in query:
                     log.warning("%s: PermID %s unresolved; using universe RIC", ric, permid)
-                df, err = _try_lseg(ld, ric, query.get(permid, ric), start, end, first, last)
+                df, divs, err = _try_lseg(ld, ric, query.get(permid, ric), start, end, first, last)
                 if err is None:
                     if len(df) >= 10000:
                         log.warning("%s: hit the 10,000-row request ceiling", ric)
+                    store.write_parquet(divs, store.cache_path(div_dir, ric, url_quote=True))
                     store.write_parquet(df, path)
                     fetched += 1
                     log.debug("  %s: fetched %d rows", ric, len(df))

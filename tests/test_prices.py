@@ -3,7 +3,7 @@
 import pandas as pd
 
 from factor_weaver.data import store
-from factor_weaver.data.build.prices import build_extra_prices, build_prices
+from factor_weaver.data.build.prices import _dividend_adjust, build_extra_prices, build_prices
 from factor_weaver.data.fetch.lseg import _attempt, _covers, _try_lseg
 
 _FIELDS = {
@@ -26,7 +26,7 @@ class _FakeLD:
         return self.frames[universe]
 
     def get_data(self, universe, **kwargs):
-        return pd.DataFrame()  # no TR.TotalReturn → prices stay unadjusted
+        return pd.DataFrame()  # no TR.TotalReturn / dividend records
 
 
 def _one_day_frame(close: float = 1.0):
@@ -59,7 +59,11 @@ _DAY = pd.Timestamp("2020-01-02")
 
 
 def _lseg(frames, ric, query, first=_DAY):
-    return _try_lseg(_FakeLD(frames), ric, query, "2020-01-01", "2020-02-01", first, _DAY)
+    df, divs, err = _try_lseg(
+        _FakeLD(frames), ric, query, "2020-01-01", "2020-02-01", first, _DAY
+    )
+    assert err is not None or divs.empty  # fake source has no dividend records
+    return df, err
 
 
 def test_try_lseg_relabels_query_ric_and_reports_errors():
@@ -112,6 +116,8 @@ def _cache_frame(ric: str, dates: list[str]) -> pd.DataFrame:
             "low": 1.0,
             "close": 1.0,
             "volume": 0,
+            "close_unadj": 1.0,
+            "total_return": 0.0,
         }
     )
 
@@ -122,7 +128,7 @@ def test_build_prices_assembles_lseg_caches_and_skips_missing(tmp_path):
     store.write_parquet(_cache_frame("A.N", ["2020-01-02"]), tmp_path / "lseg" / "A.N.parquet")
     cfg = {
         "universe": {"assets_out": tmp_path / "assets.parquet"},
-        "lseg": {"prices_out": tmp_path / "lseg"},
+        "lseg": {"prices_out": tmp_path / "lseg", "dividends_out": tmp_path / "divs"},
         "prices": {"out": tmp_path / "prices.parquet"},
     }
     build_prices(cfg)
@@ -135,7 +141,7 @@ def test_build_prices_without_caches_raises(tmp_path):
     store.write_parquet(pd.DataFrame({"ric": ["B.N"]}), tmp_path / "assets.parquet")
     cfg = {
         "universe": {"assets_out": tmp_path / "assets.parquet"},
-        "lseg": {"prices_out": tmp_path / "lseg"},
+        "lseg": {"prices_out": tmp_path / "lseg", "dividends_out": tmp_path / "divs"},
         "prices": {"out": tmp_path / "prices.parquet"},
     }
     try:
@@ -160,3 +166,68 @@ def test_build_extra_prices_filters_and_writes(tmp_path):
     build_extra_prices(cfg)
     out = pd.read_parquet(tmp_path / "extra_prices.parquet")
     assert set(out["symbol"]) == {"^VIX"}
+
+
+def _ex_day_frame(close: list[float], close_unadj: list[float]) -> pd.DataFrame:
+    # 0.50 dividend goes ex on day 2 (2020-01-03)
+    return pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2020-01-02", "2020-01-03", "2020-01-06"]),
+            "ric": "X.N",
+            "open": [10.0, 9.5, 9.5],
+            "high": [10.0, 9.5, 9.7],
+            "low": [10.0, 9.5, 9.5],
+            "close": close,
+            "volume": [1, 2, 3],
+            "close_unadj": close_unadj,
+        }
+    )
+
+
+def _divs(div_type="Interim", payment_type="Cash Dividend") -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "ex_date": pd.to_datetime(["2020-01-03"]),
+            "gross": [0.5],
+            "div_type": [div_type],
+            "payment_type": [payment_type],
+        }
+    )
+
+
+def test_dividend_adjust_back_adjusts_before_ex_date_only():
+    out, n = _dividend_adjust(_ex_day_frame([10.0, 9.5, 9.6], [10.0, 9.5, 9.6]), _divs())
+    assert n == 1
+    assert out["close"].round(6).tolist() == [9.5, 9.5, 9.6]  # day 1 × 9.5 / (9.5 + 0.5)
+    assert out["open"].round(6).tolist() == [9.5, 9.5, 9.5]
+    assert out["volume"].tolist() == [1, 2, 3]
+
+
+def test_dividend_adjust_skips_dividends_rts_already_removed():
+    # RTS already scaled day 1 by 0.95 (special removed); a second factor would double count
+    out, n = _dividend_adjust(_ex_day_frame([9.5, 9.5, 9.6], [10.0, 9.5, 9.6]), _divs())
+    assert n == 0
+    assert out["close"].tolist() == [9.5, 9.5, 9.6]
+
+
+def test_dividend_adjust_ignores_non_cash_and_rescinded_records():
+    frame = _ex_day_frame([10.0, 9.5, 9.6], [10.0, 9.5, 9.6])
+    for divs in [_divs(payment_type="Stock Dividend"), _divs(div_type="Rescinded payment")]:
+        out, n = _dividend_adjust(frame.copy(), divs)
+        assert n == 0 and out["close"].tolist() == [10.0, 9.5, 9.6]
+
+
+def test_build_prices_applies_cached_dividends(tmp_path):
+    store.write_parquet(pd.DataFrame({"ric": ["X.N"]}), tmp_path / "assets.parquet")
+    frame = _ex_day_frame([10.0, 9.5, 9.6], [10.0, 9.5, 9.6]).assign(total_return=0.0)
+    store.write_parquet(frame, tmp_path / "lseg" / "X.N.parquet")
+    store.write_parquet(_divs(), tmp_path / "divs" / "X.N.parquet")
+    cfg = {
+        "universe": {"assets_out": tmp_path / "assets.parquet"},
+        "lseg": {"prices_out": tmp_path / "lseg", "dividends_out": tmp_path / "divs"},
+        "prices": {"out": tmp_path / "prices.parquet"},
+    }
+    build_prices(cfg)
+    prices = pd.read_parquet(tmp_path / "prices.parquet")
+    assert list(prices.columns) == _PRICE_COLS
+    assert prices["close"].round(6).tolist() == [9.5, 9.5, 9.6]
