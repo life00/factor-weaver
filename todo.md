@@ -30,3 +30,5 @@
   - [ ] ml_forecast (GKX GBRT) + black_litterman (Kolm et al. BLB)
   - [ ] models/rl/ env, model, ppo, policy adapter
   - [ ] define evaluation with a proper statistical test
+- admin
+  - [ ] schedule a consultation
