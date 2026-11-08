@@ -9,7 +9,7 @@
     - `pipeline.py` — ordered `Step` manifest + dependency-aware runner
     - `store.py` — parquet writes + cache paths
     - `fetch/` — external I/O only, one module per source (`lseg`, `yahoo`, `marketpsych`); writes `data/raw/`
-    - `build/` — derived data only (`universe`, `prices`, `technical`, `fundamental`, `behavioral`, `panel`, `split`); writes `data/interim|processed`
+    - `build/` — derived data only (`universe`, `prices`, `technical`, `fundamental`, `behavioral`, `panel` (align + clean), `split`); writes `data/interim|processed`
   - `models/` — MODULE 2: weight-producing models (`simple`, `optimize`, `mean_variance`, `black_litterman`, `ml_forecast`, `rl/`); registry + trainers in `models/__init__.py`
   - `eval/` — MODULE 3: shared daily backtest engine + metrics
 
@@ -59,7 +59,8 @@ flowchart TB
 | Module                                         | Status      |
 | ---------------------------------------------- | ----------- |
 | `data/fetch/*`, `data/build/{universe,prices,extra-prices,technical,fundamental,behavioral}` | implemented |
-| `data/build/{panel,split}`                     | stub        |
+| `data/build/panel` (align, clean)              | implemented |
+| `data/build/split`                             | stub        |
 | `models/*`, `eval/backtest.py`                 | stub        |
 | `workflows/{data,report}`                      | implemented |
 | `workflows/{train,evaluate}`                   | stub        |

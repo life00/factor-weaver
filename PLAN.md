@@ -33,18 +33,18 @@ Equivalence guarantees — the central design decision:
 
 ## 2. Prerequisites (data phase — separate work)
 
-1. Panel file (`panel.out` in `config/data.yaml`, `data/processed/panel.parquet`):
-   long-tidy `(date, ric, *features)` for all universe members 1998–2026 —
-   technical, fundamental (LSEG, report-date-anchored forward-fill), behavioral
-   (MarketPsych, time-decayed) — strictly no look-ahead.
+1. Panel file (implemented; `clean.out`, `data/processed/panel.parquet`):
+   long-tidy `(date, ric, permid, close, ret, *features)` for every universe member
+   on every trading day of its quarter, 1998–2025 — technical, fundamental (next
+   trading day after availability, ≤365 days), behavioral (7-day windows); features
+   ranked per date to [-1, 1], NaN → 0; raw version `align.out`.
 2. `data/interim/extra_prices.parquet` (implemented): `^SP500TR`, `^VIX`, `^IRX`
    from `yahoo.extra_symbols` in `config/data.yaml`. `^IRX` is a 13-week T-bill
    annualized YIELD, not a price — the engine converts it to a daily cash
    return (yield / 100 / 252).
 3. Built by the data pipeline: `data/interim/universe.parquet` (quarter_end, ric,
    ticker, delisted, marketcap, rank), `prices.parquet` (daily OHLCV),
-   `technical.parquet`, `fundamental.parquet`, `behavioral.parquet`; the panel
-   merge remains.
+   `technical.parquet`, `fundamental.parquet`, `behavioral.parquet`.
 
 ## 3. Architecture
 

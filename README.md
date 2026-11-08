@@ -17,7 +17,8 @@ flowchart LR
 ## Status
 
 - Implemented: data pipeline through the technical, fundamental, and behavioral feature builds (LSEG universe/prices/fundamentals, Yahoo index/yield series, MarketPsych); config, CLI and workflows (`data`, `report`); tests.
-- Stubbed: `panel` and `split` builds; all models; shared backtest engine; `train` and `eval`.
+- Implemented: `align` and `clean` panel builds.
+- Stubbed: `split` build; all models; shared backtest engine; `train` and `eval`.
 
 ## Tech stack
 

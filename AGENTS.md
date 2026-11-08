@@ -1,6 +1,6 @@
 # Factor Weaver — Agent Guide
 
-**Status: data pipeline implemented through the technical, fundamental, and behavioral feature builds** (LSEG retrieval, top-50 universe, LSEG prices/fundamentals, Yahoo index/yield series, MarketPsych); `panel` and `split` are stubs. Models, shared engine, and `train`/`eval` workflows are stubbed per `PLAN.md`.
+**Status: data pipeline implemented through the technical, fundamental, and behavioral feature builds** (LSEG retrieval, top-50 universe, LSEG prices/fundamentals, Yahoo index/yield series, MarketPsych); `align`/`clean` build the member-day panel; `split` is a stub. Models, shared engine, and `train`/`eval` workflows are stubbed per `PLAN.md`.
 
 ## Project
 
@@ -20,7 +20,7 @@ src/factor_weaver/
 │   ├── pipeline.py   #   step manifest (Step: phase, ins, outs) + dependency-aware runner
 │   ├── store.py      #   shared parquet read/write + cache paths
 │   ├── fetch/        #   external I/O only, one module per source: lseg, yahoo, marketpsych (writes data/raw/)
-│   └── build/        #   derived data only: universe, prices, technical, fundamental, behavioral, panel, split
+│   └── build/        #   derived data only: universe, prices, technical, fundamental, behavioral, panel (align + clean), split
 ├── models/           # MODULE 2: weight-producing models: simple, optimize, mean_variance, black_litterman, ml_forecast, rl/ (env, model, ppo, policy)
 └── eval/             # MODULE 3: backtest (shared engine + metrics)
 
@@ -59,9 +59,10 @@ tests/                # pytest checks (universe/prices tests synthetic)
 
 - S&P500 constituent list, joiner/leaver history (since 1994), RIC mapping, and market cap (`TR.CompanyMarketCap`, fallback `TR.F.MktCap`): fetched from LSEG data API, cached in `data/raw/lseg/`; used for top-50 universe selection.
 - Price data: LSEG data API daily OHLCV for every universe stock (per-RIC cache in `data/raw/lseg/prices/`, from `lseg.start` for lookback; no fallback source); Yahoo Finance (`yfinance`) only for the extra index/yield series in `yahoo.extra_symbols` (per-symbol cache in `data/raw/yahoo/prices/`).
-- Fundamentals: LSEG data API quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one long parquet per RIC, as originally reported, USD, from `lseg.start` for lookback; availability = `max(source_date, original_announcement_date)`, 60-day fallback); `build/fundamental.py` writes stock-quarter features to `data/interim/fundamental.parquet`; `panel` integration not implemented.
+- Fundamentals: LSEG data API quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one long parquet per RIC, as originally reported, USD, from `lseg.start` for lookback; availability = `max(source_date, original_announcement_date)`, 60-day fallback); `build/fundamental.py` writes stock-quarter features to `data/interim/fundamental.parquet`; `align` enters each on the next trading day, carried ≤365 days.
 - Technical: computed in `build/technical.py` from `prices.parquet`, market cap, and quarterly shares to `data/interim/technical.parquet`.
-- Behavioral: MarketPsych file API raw slices in `data/raw/marketpsych/`; `build/behavioral.py` clips to `[marketpsych.start, end)`, dedupes slices, computes daily `sentiment` and `attention` (`docs/features.md`, NaN when undefined) per PermID, and maps them to its universe RIC(s) in `data/interim/behavioral.parquet`; `panel` integration not implemented.
+- Behavioral: MarketPsych file API raw slices in `data/raw/marketpsych/`; `build/behavioral.py` clips to `[marketpsych.start, end)`, dedupes slices, computes daily `sentiment` and `attention` (`docs/features.md`, NaN when undefined) per PermID, and maps them to its universe RIC(s) in `data/interim/behavioral.parquet`.
+- Panel: `build/panel.py` `align` writes the member-day grid (every universe member × every `^SP500TR` trading day of its quarter; `close`, `ret`, raw features, NaN kept) to `data/interim/panel.parquet`; `clean` ranks features per date to [-1, 1], NaN → 0, `close`/`ret` untouched, to `data/processed/panel.parquet`.
 - Benchmarks/evaluation (per `docs/models.md`): scikit-learn (GBRT, Ledoit–Wolf), PyPortfolioOpt (tangency optimizer), mlflow (tracking) — declared in `pyproject.toml`; risk-free via `^IRX` (yield series, not a price).
 - Dev: `uv sync` installs the project plus the `dev` dependency group into `.venv`; run checks with `uv run pytest tests/`, `ruff check .`, `pyright src`.
 

@@ -41,10 +41,10 @@ t-statistics from Lewellen (2015) Table 2 (stocks above the NYSE median, 15-vari
 - volume: LSEG consolidated volume $V_t$ (company queried by PermID; companies resolving to another share line keep exchange volume, `docs/data.md`); NASDAQ before 2004 not halved for double counting
 - market equity: $\mathit{ME}_t = \mathit{ME}_q \cdot P_t / P_q$, $\mathit{ME}_q$ = last quarter-end market cap
   - shortcut: ignores share changes and counts dividends since quarter end (≤ ~1%)
-- shares outstanding: $S_t$, split-adjusted; LSEG field to identify
+- shares outstanding: $S_t$, split-adjusted; `TR.F.ComShrOutsTot`
 - fundamentals: LSEG `TR.F.*`, quarterly; flows over the trailing twelve months (TTM), stocks at the latest quarter
 - availability
-  - fundamentals: from the LSEG `source_date` (filing date, `docs/data.md`), else 4 months after period end [gu-2020-empirical-asset-pricing-ml]
+  - fundamentals: from the trading day after `max(source_date, original_announcement_date)` (`docs/data.md`), else 60 days after period end; missing once older than 365 days
   - behavioral: MarketPsych day $d$ covers the 24 h to 15:30 ET → usable at the close of $d$ (the 3:30 pm news cutoff of [tetlock-2008-more-than-words]); no row = zero buzz
 - financials: kept; every feature is defined for banks and insurers
 

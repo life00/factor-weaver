@@ -20,6 +20,13 @@
   - fundamentals: one row per stock-quarter at `max(source_date, original_announcement_date)`, else 60 days after period end capped before the next period; TTM flows, latest-quarter stocks, as-reported (no look-ahead)
   - technical: daily rows from adjusted prices, market cap, and quarterly shares
   - behavioral: daily calendar rows; 7-day sentiment and abnormal buzz from MarketPsych day $d$ (24 h to 15:30 ET), usable at the close of $d$
+  - panel (`align` → `data/interim/panel.parquet`)
+    - calendar: `^SP500TR` dates = exchange trading days; drops 2 stray weekend price rows (AMGN, CELG 2003)
+    - rows: every member of the quarter-end $q$ snapshot on every trading day after $q$ up to the next quarter-end; NaN kept (651 delisting-tail days have no price)
+    - `close`, `ret` = $P_t / P_{t-1} - 1$ over the previous trading day
+    - technical, behavioral: value of day $d$
+    - fundamentals: from the trading day after the availability date (after-close filings), NaN after 365 days (several missed filings)
+  - normalization (`clean` → `data/processed/panel.parquet`): features ranked per date to [-1, 1], NaN → 0 (`docs/features.md`); `close`/`ret` untouched
 
 ## Flow
 
@@ -47,8 +54,9 @@ flowchart LR
   bfund <--> interim
   bbeh <--> interim
   tech <--> interim
-  interim --> panel["build: panel (stub)"]
-  panel --> processed[("data/processed/")]
+  interim <--> align["build: align<br/>member-day grid"]
+  interim --> clean["build: clean<br/>rank · fill"]
+  clean --> processed[("data/processed/")]
   processed <--> split["build: split (stub)"]
 ```
 
@@ -82,7 +90,7 @@ Bidirectional arrows mark builds that both read and write the same store. Fetch 
   - PermID-resolved, universe share line: each company's US consolidated RIC (LSEG symbology) when it is the universe line (KO.N → KO), else the universe RIC; the other is the fallback (renames: PSKY.OQ → SKYD.K); a series must cover the membership window; rows labelled with the universe RIC
   - <https://finance.yahoo.com/> via `yfinance` — only the configured `extra_symbols` (`^SP500TR`, `^VIX`, `^IRX`), never universe stocks; `extra-prices` build step writes them to `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
 - fundamental
-  - LSEG data API — quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one long parquet per RIC: `ric, field, value, period_end, fiscal_period, source_date, fund_upd_type, original_announcement_date`; as originally reported, USD; window `lseg.start`..`universe.end` for 36-month lookback); `build/fundamental.py` writes one row per stock-quarter at the availability date above (TTM flows, latest-quarter stocks, market equity from quarter-end cap and closes); output `data/interim/fundamental.parquet`; `panel` integration not implemented
+  - LSEG data API — quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one long parquet per RIC: `ric, field, value, period_end, fiscal_period, source_date, fund_upd_type, original_announcement_date`; as originally reported, USD; window `lseg.start`..`universe.end` for 36-month lookback); `build/fundamental.py` writes one row per stock-quarter at the availability date above (TTM flows, latest-quarter stocks, market equity from quarter-end cap and closes); output `data/interim/fundamental.parquet`; entered by `align` on the next trading day
 - technical
   - computed in `build/technical.py` from `prices.parquet`, market cap, and quarterly shares (`docs/features.md`); output `data/interim/technical.parquet` with daily rows
 - behavioral
@@ -148,5 +156,5 @@ Bidirectional arrows mark builds that both read and write the same store. Fetch 
 - **No vendor row in 63 days = missing, not zero attention**: catches unmapped RICs
   (T.N^K05, GM.N^F09, S.N^G13, DELL.OQ^J13, VIAV.OQ, BAC.N^I98, AIT.N^J99, AN.N^L98) and
   coverage gaps (GOOGL 2006–2014); thinly covered names (buzz ≈ 1–5) are not caught
-- **NaN is left to `panel`**: the build outputs undefined features as NaN; the fill
-  (0 after ranking) happens across features in `panel`
+- **NaN is left to `clean`**: the build outputs undefined features as NaN; the fill
+  (0 after ranking) happens across features in `clean`
