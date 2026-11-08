@@ -57,17 +57,24 @@ def test_fetch_symbols_caches_and_reuses(tmp_path, monkeypatch):
         return _one_day(symbol)
 
     monkeypatch.setattr(yahoo, "_fetch_symbol", fake_fetch)
-    cfg = {"yahoo": {"prices_out": tmp_path / "cache"}}
-    out = yahoo.fetch_symbols(cfg, ["^VIX", "ENE"], "2020-01-01", "2020-01-31")
+    cfg = {
+        "yahoo": {"prices_out": tmp_path / "cache", "start": "2020-01-01"},
+        "universe": {"end": "2020-01-31"},
+    }
+    out = yahoo.fetch_symbols(cfg, ["^VIX", "ENE"])
     assert set(out["symbol"]) == {"^VIX", "ENE"}
     assert (tmp_path / "cache" / "^VIX.parquet").exists()
-    yahoo.fetch_symbols(cfg, ["^VIX"], "2020-01-01", "2020-01-31")
+    yahoo.fetch_symbols(cfg, ["^VIX"])
     assert calls == ["^VIX", "ENE"]  # second run served from cache
-    yahoo.fetch_symbols(cfg, ["^VIX"], "2020-01-01", "2020-01-31", refresh=True)
+    yahoo.fetch_symbols(cfg, ["^VIX"], refresh=True)
     assert calls == ["^VIX", "ENE", "^VIX"]  # refresh bypasses the cache
 
 
 def test_fetch_symbols_empty_is_canonical_empty(tmp_path):
-    out = yahoo.fetch_symbols({"yahoo": {"prices_out": tmp_path}}, [], "2020-01-01", "2020-01-02")
+    cfg = {
+        "yahoo": {"prices_out": tmp_path, "start": "2020-01-01"},
+        "universe": {"end": "2020-01-02"},
+    }
+    out = yahoo.fetch_symbols(cfg, [])
     assert out.empty
     assert list(out.columns) == _COLS

@@ -1,9 +1,10 @@
 """Assemble canonical interim price files from the raw caches.
 
 Universe stock prices come only from the per-RIC LSEG caches (RTS-adjusted for splits and
-spin-offs), back-adjusted here for cash dividends from the cached LSEG dividend records;
-the configured extra index/ETF series (Yahoo) are written separately for the evaluation
-engine.
+spin-offs), kept on the <CALENDAR_SYMBOL> trading days, back-adjusted here for cash
+dividends from the cached LSEG dividend records, with the daily total return
+ret = P_t / P_{t-1} - 1 over the previous trading day; the configured extra index/ETF
+series (Yahoo) are written separately for the evaluation engine.
 """
 
 import logging
@@ -17,7 +18,8 @@ from factor_weaver.data import store
 
 log = logging.getLogger(__name__)
 
-PRICE_COLS = ["date", "ric", "open", "high", "low", "close", "volume"]
+CALENDAR_SYMBOL = "^SP500TR"  # index published on exchange trading days only
+PRICE_COLS = ["date", "ric", "open", "high", "low", "close", "volume", "ret"]
 EXTRA_COLS = ["date", "symbol", "open", "high", "low", "close", "volume"]
 _CASH_PAYMENTS = ["Cash Dividend", "Cash and Stock Alternative"]
 
@@ -71,14 +73,22 @@ def _read_cache(path: Path) -> pd.DataFrame | None:
 
 
 def build_prices(cfg: dict[str, Any]) -> None:
-    """Dividend-adjust the LSEG caches and merge them into <prices.out>.
+    """Calendar-align and dividend-adjust the LSEG caches, merge them into <prices.out>.
 
-    Reads: <universe.assets_out>, <lseg.prices_out>, <lseg.dividends_out>
-    Writes: <prices.out> (columns: date, ric, open..volume)
+    Reads: <universe.assets_out>, <lseg.prices_out>, <lseg.dividends_out>,
+           <yahoo.extra_prices_out> (<CALENDAR_SYMBOL> dates)
+    Writes: <prices.out> (columns: date, ric, open..volume, ret)
     """
     assets_path = Path(cfg["universe"]["assets_out"])
     if not assets_path.exists():
         raise FileNotFoundError(f"run the universe step first; missing: {assets_path}")
+    extra_path = Path(cfg["yahoo"]["extra_prices_out"])
+    if not extra_path.exists():
+        raise FileNotFoundError(f"run the extra-prices step first; missing: {extra_path}")
+    extra = pd.read_parquet(extra_path, columns=["date", "symbol"])
+    cal = pd.Series(extra.loc[extra["symbol"] == CALENDAR_SYMBOL, "date"].unique())
+    if cal.empty:
+        raise RuntimeError(f"no {CALENDAR_SYMBOL} rows in {extra_path}; add it to extra_symbols")
     assets = pd.read_parquet(assets_path)
     lseg_dir = Path(cfg["lseg"]["prices_out"])
     div_dir = Path(cfg["lseg"]["dividends_out"])
@@ -86,6 +96,7 @@ def build_prices(cfg: dict[str, Any]) -> None:
     frames: list[pd.DataFrame] = []
     missing: list[str] = []
     no_dividends: list[str] = []
+    dropped = 0
     for ric in assets["ric"].astype(str):
         df = _read_cache(store.cache_path(lseg_dir, ric, url_quote=True))
         if df is None or df.empty:
@@ -93,10 +104,19 @@ def build_prices(cfg: dict[str, Any]) -> None:
             continue
         if "close_unadj" not in df:
             raise RuntimeError(f"{ric}: old price cache; run `data fetch lseg-prices --refresh`")
+        if df["date"].min() < cal.min() or df["date"].max() > cal.max():
+            raise RuntimeError(
+                f"{ric}: prices outside the {CALENDAR_SYMBOL} calendar "
+                f"({cal.min():%Y-%m-%d}..{cal.max():%Y-%m-%d}); "
+                "run `data fetch yahoo-prices --refresh`"
+            )
+        on_cal = df["date"].isin(cal)
+        dropped += int((~on_cal).sum())
         divs = _read_cache(store.cache_path(div_dir, ric, url_quote=True))
-        df, applied = _dividend_adjust(df.sort_values("date", ignore_index=True), divs)
+        df, applied = _dividend_adjust(df.loc[on_cal].sort_values("date", ignore_index=True), divs)
         if not applied:
             no_dividends.append(ric)
+        df["ret"] = df["close"].astype("float64").pct_change(fill_method=None)
         frames.append(df.loc[:, PRICE_COLS])
 
     if not frames:
@@ -104,13 +124,18 @@ def build_prices(cfg: dict[str, Any]) -> None:
     out = Path(cfg["prices"]["out"])
     prices = pd.concat(frames, ignore_index=True).sort_values(by=["date", "ric"])
     store.write_parquet(prices, out)
-    log.info("wrote %s (%d rows, %d rics, %d missing)", out, len(prices), len(frames), len(missing))
+    log.info(
+        "wrote %s (%d rows, %d rics, %d missing, %d off-calendar rows dropped)",
+        out,
+        len(prices),
+        len(frames),
+        len(missing),
+        dropped,
+    )
     if missing:
         log.warning("missing price data for %d rics: %s", len(missing), ", ".join(missing))
     if no_dividends:
-        log.info(
-            "no dividends applied for %d rics: %s", len(no_dividends), ", ".join(no_dividends)
-        )
+        log.info("no dividends applied for %d rics: %s", len(no_dividends), ", ".join(no_dividends))
 
 
 def build_extra_prices(cfg: dict[str, Any]) -> None:

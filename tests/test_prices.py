@@ -13,7 +13,7 @@ _FIELDS = {
     "TRDPRC_1": [1.2],
     "ACVOL_UNS": [100],
 }
-_PRICE_COLS = ["date", "ric", "open", "high", "low", "close", "volume"]
+_PRICE_COLS = ["date", "ric", "open", "high", "low", "close", "volume", "ret"]
 
 
 class _FakeLD:
@@ -59,9 +59,7 @@ _DAY = pd.Timestamp("2020-01-02")
 
 
 def _lseg(frames, ric, query, first=_DAY):
-    df, divs, err = _try_lseg(
-        _FakeLD(frames), ric, query, "2020-01-01", "2020-02-01", first, _DAY
-    )
+    df, divs, err = _try_lseg(_FakeLD(frames), ric, query, "2020-01-01", "2020-02-01", first, _DAY)
     assert err is not None or divs.empty  # fake source has no dividend records
     return df, err
 
@@ -122,15 +120,24 @@ def _cache_frame(ric: str, dates: list[str]) -> pd.DataFrame:
     )
 
 
+def _price_cfg(tmp_path, calendar: str = "2020-01-02") -> dict:
+    """build_prices cfg with a ^SP500TR trading calendar of weekdays from `calendar`."""
+    days = pd.bdate_range(calendar, "2020-01-31")
+    cal = pd.DataFrame({"date": days, "symbol": "^SP500TR", "close": 1.0})
+    store.write_parquet(cal, tmp_path / "extra_prices.parquet")
+    return {
+        "universe": {"assets_out": tmp_path / "assets.parquet"},
+        "lseg": {"prices_out": tmp_path / "lseg", "dividends_out": tmp_path / "divs"},
+        "yahoo": {"extra_prices_out": tmp_path / "extra_prices.parquet"},
+        "prices": {"out": tmp_path / "prices.parquet"},
+    }
+
+
 def test_build_prices_assembles_lseg_caches_and_skips_missing(tmp_path):
     assets = pd.DataFrame({"ric": ["A.N", "B.N"]})
     store.write_parquet(assets, tmp_path / "assets.parquet")
     store.write_parquet(_cache_frame("A.N", ["2020-01-02"]), tmp_path / "lseg" / "A.N.parquet")
-    cfg = {
-        "universe": {"assets_out": tmp_path / "assets.parquet"},
-        "lseg": {"prices_out": tmp_path / "lseg", "dividends_out": tmp_path / "divs"},
-        "prices": {"out": tmp_path / "prices.parquet"},
-    }
+    cfg = _price_cfg(tmp_path)
     build_prices(cfg)
     prices = pd.read_parquet(tmp_path / "prices.parquet")
     assert list(prices.columns) == _PRICE_COLS
@@ -139,11 +146,7 @@ def test_build_prices_assembles_lseg_caches_and_skips_missing(tmp_path):
 
 def test_build_prices_without_caches_raises(tmp_path):
     store.write_parquet(pd.DataFrame({"ric": ["B.N"]}), tmp_path / "assets.parquet")
-    cfg = {
-        "universe": {"assets_out": tmp_path / "assets.parquet"},
-        "lseg": {"prices_out": tmp_path / "lseg", "dividends_out": tmp_path / "divs"},
-        "prices": {"out": tmp_path / "prices.parquet"},
-    }
+    cfg = _price_cfg(tmp_path)
     try:
         build_prices(cfg)
     except RuntimeError as e:
@@ -222,12 +225,31 @@ def test_build_prices_applies_cached_dividends(tmp_path):
     frame = _ex_day_frame([10.0, 9.5, 9.6], [10.0, 9.5, 9.6]).assign(total_return=0.0)
     store.write_parquet(frame, tmp_path / "lseg" / "X.N.parquet")
     store.write_parquet(_divs(), tmp_path / "divs" / "X.N.parquet")
-    cfg = {
-        "universe": {"assets_out": tmp_path / "assets.parquet"},
-        "lseg": {"prices_out": tmp_path / "lseg", "dividends_out": tmp_path / "divs"},
-        "prices": {"out": tmp_path / "prices.parquet"},
-    }
+    cfg = _price_cfg(tmp_path)
     build_prices(cfg)
     prices = pd.read_parquet(tmp_path / "prices.parquet")
     assert list(prices.columns) == _PRICE_COLS
     assert prices["close"].round(6).tolist() == [9.5, 9.5, 9.6]
+
+
+def test_build_prices_drops_off_calendar_rows_before_returns(tmp_path):
+    store.write_parquet(pd.DataFrame({"ric": ["A.N"]}), tmp_path / "assets.parquet")
+    dates = ["2020-01-02", "2020-01-03", "2020-01-04", "2020-01-06"]  # 01-04 is a Saturday
+    frame = _cache_frame("A.N", dates).assign(close=[1.0, 2.0, 9.0, 3.0])
+    store.write_parquet(frame.assign(close_unadj=frame["close"]), tmp_path / "lseg" / "A.N.parquet")
+    build_prices(_price_cfg(tmp_path))
+    prices = pd.read_parquet(tmp_path / "prices.parquet")
+    assert prices["date"].dt.dayofweek.max() < 5
+    assert prices["ret"].tolist()[1:] == [1.0, 0.5]  # Monday's return spans Friday
+    assert pd.isna(prices["ret"].iloc[0])
+
+
+def test_build_prices_rejects_a_calendar_shorter_than_prices(tmp_path):
+    store.write_parquet(pd.DataFrame({"ric": ["A.N"]}), tmp_path / "assets.parquet")
+    store.write_parquet(_cache_frame("A.N", ["2020-01-02"]), tmp_path / "lseg" / "A.N.parquet")
+    try:
+        build_prices(_price_cfg(tmp_path, calendar="2020-01-03"))
+    except RuntimeError as e:
+        assert "yahoo-prices --refresh" in str(e)
+    else:
+        raise AssertionError("prices before the calendar start must not be dropped silently")

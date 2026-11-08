@@ -9,6 +9,7 @@ lseg:
   dividends_out: data/raw/lseg/dividends # dividend records; applied in build prices
 
 yahoo:
+  start: "1994-01-01" # same look-back as lseg.start; ^SP500TR doubles as the trading calendar
   prices_out: data/raw/yahoo/prices
   extra_prices_out: data/interim/extra_prices.parquet
   extra_symbols: ["^SP500TR", "^VIX", "^IRX"] # index/yield series; stock prices are LSEG-only

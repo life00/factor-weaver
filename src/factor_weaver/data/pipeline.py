@@ -114,18 +114,23 @@ STEPS: tuple[Step, ...] = (
         per_item=True,
     ),
     Step(
-        "prices",
-        build_prices.build_prices,
-        "build",
-        ins=("universe.assets_out", "lseg.prices_out", "lseg.dividends_out"),
-        outs=("prices.out",),
-    ),
-    Step(
         "extra-prices",
         build_prices.build_extra_prices,
         "build",
         ins=("yahoo.prices_out",),
         outs=("yahoo.extra_prices_out",),
+    ),
+    Step(
+        "prices",
+        build_prices.build_prices,
+        "build",
+        ins=(
+            "universe.assets_out",
+            "lseg.prices_out",
+            "lseg.dividends_out",
+            "yahoo.extra_prices_out",  # trading calendar
+        ),
+        outs=("prices.out",),
     ),
     Step(
         "behavioral",

@@ -53,12 +53,14 @@ def _fetch_symbol(symbol: str, start: str, end: str) -> pd.DataFrame:
 
 
 def fetch_symbols(
-    cfg: dict[str, Any], symbols: list[str], start: str, end: str, *, refresh: bool = False
+    cfg: dict[str, Any], symbols: list[str], *, refresh: bool = False
 ) -> pd.DataFrame:
-    """Fetch/cache every requested symbol; returns one long frame of what exists.
+    """Fetch/cache every requested symbol over [<yahoo.start>, <universe.end>].
 
-    Symbols already cached under <yahoo.prices_out> are skipped unless refresh.
+    Returns one long frame of what exists. Symbols already cached under
+    <yahoo.prices_out> are skipped unless refresh.
     """
+    start, end = cfg["yahoo"]["start"], cfg["universe"]["end"]
     cache_dir = Path(cfg["yahoo"]["prices_out"])
     frames: list[pd.DataFrame] = []
     missing: list[str] = []
@@ -95,12 +97,11 @@ def fetch_symbols(
 def fetch_yahoo_prices(cfg: dict[str, Any]) -> None:
     """Cache the configured extra series.
 
-    Reads: <yahoo.extra_symbols>
+    Reads: <yahoo.extra_symbols>, <yahoo.start>, <universe.end>
     Writes: per-symbol cache under <yahoo.prices_out>
     """
     symbols = list((cfg.get("yahoo") or {}).get("extra_symbols") or [])
     if not symbols:
         log.info("yahoo-prices: no extra symbols configured")
         return
-    u = cfg["universe"]
-    fetch_symbols(cfg, symbols, u["start"], u["end"], refresh=bool(cfg.get("_refresh")))
+    fetch_symbols(cfg, symbols, refresh=bool(cfg.get("_refresh")))
