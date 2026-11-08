@@ -1,0 +1,125 @@
+---
+title: Explore panel stats
+jupyter: python3
+---
+
+Descriptive statistics and correlations of the member-day panel:
+
+- `data/interim/panel.parquet` (`align`): raw features, NaN kept
+- `data/processed/panel.parquet` (`clean`): features ranked per date to [-1, 1], NaN → 0
+
+(see `src/factor_weaver/data/build/panel.py`). Missing values and outliers are in `explore_panel.qmd`.
+
+`ret_next` is the member's return over the next trading day (NaN when it is not a member on that day); features of day t are known at the close of t, so their correlation with `ret_next` is the information coefficient (IC).
+
+```{python}
+import os
+import pandas as pd
+from pathlib import Path
+
+while not (Path.cwd() / "config" / "data.yaml").exists() and Path.cwd().parent != Path.cwd():
+    os.chdir("..")
+print(Path.cwd())
+
+raw = pd.read_parquet("data/interim/panel.parquet")
+proc = pd.read_parquet("data/processed/panel.parquet")
+MARKET = ["rf", "mkt_ret", "vix"]
+FEATURES = [c for c in raw.columns if c not in ["date", "ric", "permid", "close", "ret", *MARKET]]
+
+days = pd.DatetimeIndex(sorted(raw["date"].unique()))
+prev = pd.Series(days[:-1], index=days[1:])
+nxt = raw[["date", "ric", "ret"]].assign(date=raw["date"].map(prev)).rename(columns={"ret": "ret_next"})
+raw = raw.merge(nxt, on=["date", "ric"], how="left")
+proc["ret_next"] = raw["ret_next"].to_numpy()  # same rows in the same order
+
+
+def stats(df):
+    return df.agg(["count", "mean", "std", "min", "median", "max", "skew", "kurt"]).T.round(4)
+
+
+def cs_corr(df):
+    """Spearman correlation per date across that date's members: (date, column) x column."""
+    return df.groupby(raw["date"])[[*FEATURES, "ret_next"]].corr("spearman")
+
+
+def ic(cs):
+    """Per-date correlation of each feature with ret_next: mean, std, t-stat over dates."""
+    c = cs.xs("ret_next", level=1)[FEATURES]
+    return pd.DataFrame({"mean": c.mean(), "std": c.std(), "t": c.mean() / c.std() * c.count() ** 0.5}).round(3)
+```
+
+## Interim
+
+### Descriptive statistics
+
+```{python}
+stats(raw[["ret", "ret_next", *MARKET, *FEATURES]])
+```
+
+### Annualized returns (equal-weight members vs S&P 500 TR)
+
+```{python}
+daily = raw.groupby("date").agg(ew=("ret", "mean"), mkt=("mkt_ret", "first"), rf=("rf", "first"))
+ex = daily[["ew", "mkt"]].sub(daily["rf"], axis=0)
+pd.DataFrame({
+    "mean": daily[["ew", "mkt"]].mean() * 252,
+    "vol": daily[["ew", "mkt"]].std() * 252**0.5,
+    "sharpe": ex.mean() / ex.std() * 252**0.5,
+    "corr with mkt": daily[["ew", "mkt"]].corr()["mkt"],
+}).round(3)
+```
+
+### Feature correlation (pooled Spearman)
+
+```{python}
+raw[FEATURES].corr("spearman").round(2)
+```
+
+### Feature correlation (cross-sectional Spearman, mean over dates)
+
+```{python}
+raw_cs = cs_corr(raw)
+raw_avg = raw_cs.groupby(level=1).mean().loc[FEATURES, FEATURES]
+raw_avg.round(2)
+```
+
+### Feature correlation with market columns (pooled Spearman)
+
+```{python}
+raw[[*FEATURES, *MARKET]].corr("spearman").loc[FEATURES, MARKET].round(2)
+```
+
+### Information coefficient
+
+```{python}
+raw_ic = ic(raw_cs)
+raw_ic
+```
+
+## Processed
+
+### Descriptive statistics
+
+```{python}
+stats(proc[FEATURES])
+```
+
+### Feature correlation (cross-sectional Spearman, mean over dates)
+
+```{python}
+proc_cs = cs_corr(proc)
+proc_avg = proc_cs.groupby(level=1).mean().loc[FEATURES, FEATURES]
+proc_avg.round(2)
+```
+
+### Correlation change vs interim (NaN → 0 effect)
+
+```{python}
+(proc_avg - raw_avg).round(2)
+```
+
+### Information coefficient vs interim
+
+```{python}
+ic(proc_cs).join(raw_ic, rsuffix=" interim")
+```
