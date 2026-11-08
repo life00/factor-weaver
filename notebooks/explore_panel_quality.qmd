@@ -1,0 +1,123 @@
+---
+title: Explore panel quality
+jupyter: python3
+---
+
+Checking missing values and outliers in the member-day panel:
+
+- `data/interim/panel.parquet` (`align`): every universe member × every trading day of its quarter; `close`, `ret`, market columns `rf`/`mkt_ret`/`vix`, raw features, NaN kept
+- `data/processed/panel.parquet` (`clean`): features ranked per date to [-1, 1], NaN → 0; prices/returns/market columns untouched
+
+(see `src/factor_weaver/data/build/panel.py`)
+
+```{python}
+import os
+import pandas as pd
+from pathlib import Path
+
+while not (Path.cwd() / "config" / "data.yaml").exists() and Path.cwd().parent != Path.cwd():
+    os.chdir("..")
+print(Path.cwd())
+
+raw = pd.read_parquet("data/interim/panel.parquet")
+proc = pd.read_parquet("data/processed/panel.parquet")
+KEYS = ["date", "ric", "permid"]
+COLS = [c for c in raw.columns if c not in KEYS]
+MARKET = ["rf", "mkt_ret", "vix"]
+FEATURES = [c for c in COLS if c not in ["close", "ret", *MARKET]]
+```
+
+## Interim
+
+### Shape
+
+```{python}
+members = raw.groupby("date").size()
+pd.Series({
+    "rows": len(raw),
+    "days": raw["date"].nunique(),
+    "first": raw["date"].min().date(),
+    "last": raw["date"].max().date(),
+    "members/day min": members.min(),
+    "members/day max": members.max(),
+    "duplicate (date, ric)": raw.duplicated(["date", "ric"]).sum(),
+})
+```
+
+### NaN % per column
+
+```{python}
+raw[COLS].isna().mean().mul(100).round(2).sort_values(ascending=False)
+```
+
+### NaN % per column by year
+
+```{python}
+raw[COLS].isna().groupby(raw["date"].dt.year).mean().mul(100).round(1)
+```
+
+### Members with missing prices
+
+```{python}
+miss = raw.loc[raw["close"].isna()]
+miss.groupby("ric")["date"].agg(["count", "min", "max"]).sort_values("count", ascending=False)
+```
+
+### Dates with missing market columns
+
+```{python}
+raw.loc[raw[MARKET].isna().any(axis=1), ["date", *MARKET]].drop_duplicates()
+```
+
+### Distribution
+
+```{python}
+raw[COLS].describe(percentiles=[0.001, 0.01, 0.5, 0.99, 0.999]).T
+```
+
+### Outliers per column (|robust z| > 10, median/MAD)
+
+```{python}
+x = raw[COLS].drop(columns="close")  # price levels are not comparable across stocks
+z = (x - x.median()) / (1.4826 * (x - x.median()).abs().median())
+z.abs().gt(10).sum().sort_values(ascending=False)
+```
+
+### Largest absolute returns
+
+```{python}
+raw.loc[raw["ret"].abs().nlargest(20).index, ["date", "ric", "close", "ret", "mkt_ret"]]
+```
+
+### Largest robust z per feature
+
+```{python}
+pd.DataFrame(
+    {f: raw.loc[z[f].abs().idxmax(), ["date", "ric", f]].set_axis(["date", "ric", "value"]) for f in FEATURES}
+).T.assign(z=z[FEATURES].abs().max().round(1))
+```
+
+## Processed
+
+### Same rows and untouched columns
+
+```{python}
+same = ["close", "ret", *MARKET]
+pd.Series({
+    "same keys": raw[KEYS].equals(proc[KEYS]),
+    "same close/ret/market": raw[same].equals(proc[same]),
+    "NaN in features": int(proc[FEATURES].isna().sum().sum()),
+})
+```
+
+### Feature range and NaN-filled share
+
+```{python}
+pd.DataFrame({
+    "min": proc[FEATURES].min(),
+    "max": proc[FEATURES].max(),
+    "mean": proc[FEATURES].mean().round(3),
+    "% was NaN (→ 0)": raw[FEATURES].isna().mean().mul(100).round(1),
+    "% zero": proc[FEATURES].eq(0).mean().mul(100).round(1),
+})
+```
