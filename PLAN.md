@@ -34,10 +34,11 @@ Equivalence guarantees — the central design decision:
 ## 2. Prerequisites (data phase — separate work)
 
 1. Panel file (implemented; `clean.out`, `data/processed/panel.parquet`):
-   long-tidy `(date, ric, permid, close, ret, *features)` for every universe member
+   long-tidy `(date, ric, permid, close, ret, rf, mkt_ret, vix, *features)` for every universe member
    on every trading day of its quarter, 1998–2025 — technical, fundamental (next
    trading day after availability, ≤365 days), behavioral (7-day windows); features
-   ranked per date to [-1, 1], NaN → 0; raw version `align.out`.
+   ranked per date to [-1, 1], NaN → 0; market columns raw (`rf` daily cash
+   return from `^IRX`, `mkt_ret` from `^SP500TR`, `vix`); raw version `align.out`.
 2. `data/interim/extra_prices.parquet` (implemented): `^SP500TR`, `^VIX`, `^IRX`
    from `yahoo.extra_symbols` in `config/data.yaml`. `^IRX` is a 13-week T-bill
    annualized YIELD, not a price — the engine converts it to a daily cash

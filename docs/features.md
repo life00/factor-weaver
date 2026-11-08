@@ -138,4 +138,4 @@ t-statistics from Lewellen (2015) Table 2 (stocks above the NYSE median, 15-vari
 - Google search volume (Vozlyublennaia 2014) — index-level evidence; not in the pipeline
 - LLM sentiment on FNSPID news (Dong et al. 2024) — duplicates vendor sentiment; FNSPID ends in 2023
 - MarketPsych emotion indices (fear, joy, gloom, stress) — no firm-level evidence
-- market state (VIX, T-bill, index return), passive cap weight — no cross-sectional variation / monotone in size
+- market state (VIX, T-bill, index return), passive cap weight — no cross-sectional variation / monotone in size (VIX, T-bill and index return are carried raw in the panel as market columns)

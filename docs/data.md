@@ -21,9 +21,10 @@
   - technical: daily rows from adjusted prices, market cap, and quarterly shares
   - behavioral: daily calendar rows; 7-day sentiment and abnormal buzz from MarketPsych day $d$ (24 h to 15:30 ET), usable at the close of $d$
   - panel (`align` → `data/interim/panel.parquet`)
-    - calendar: `^SP500TR` dates = exchange trading days; drops 2 stray weekend price rows (AMGN, CELG 2003)
+    - calendar: `^SP500TR` dates = exchange trading days (index published only when the exchange is open), applied in `build prices`: drops 6 off-calendar LSEG rows (AMGN, CELG 2003 weekends; 1994 holidays), so technicals, the panel and model look-backs share one calendar
     - rows: every member of the quarter-end $q$ snapshot on every trading day after $q$ up to the next quarter-end; NaN kept (651 delisting-tail days have no price)
-    - `close`, `ret` = $P_t / P_{t-1} - 1$ over the previous trading day
+    - `close`, `ret` = $P_t / P_{t-1} - 1$ over the previous trading day (from `prices.parquet`)
+    - market columns, same for every member on a date, not features: `rf` = `^IRX`$_{t-1}$ / 100 / 252 (cash return over $(t-1, t]$; yield carried over bond-market holidays), `mkt_ret` = `^SP500TR` daily return, `vix` = `^VIX` close of $d$
     - technical, behavioral: value of day $d$
     - fundamentals: from the trading day after the availability date (after-close filings), NaN after 365 days (several missed filings)
   - normalization (`clean` → `data/processed/panel.parquet`): features ranked per date to [-1, 1], NaN → 0 (`docs/features.md`); `close`/`ret` untouched
@@ -78,7 +79,7 @@ Bidirectional arrows mark builds that both read and write the same store. Fetch 
   - risk-free - `^IRX` (T-bill annualized yield, not a price)
   - S&P500 total-return index - `^SP500TR` (dividends reinvested, like the stock prices)
 - market-wide indicators (engine/benchmark inputs, not model features)
-  - VIX - `^VIX`
+  - VIX - `^VIX`; carried raw in the panel (`vix`)
 
 ## Sources
 
@@ -89,7 +90,7 @@ Bidirectional arrows mark builds that both read and write the same store. Fetch 
   - LSEG data API — daily OHLCV, primary source; RTS-adjusted (splits, spin-offs), plus the unadjusted close and `TR.TotalReturn` (comparison only); per-RIC cache in `data/raw/lseg/prices/`; window `lseg.start`..`universe.end` for indicator lookback
   - LSEG dividend records (`TR.DivExDate`, `TR.DivUnadjustedGross`, type, payment type) per RIC in `data/raw/lseg/dividends/`; `build prices` applies them as cash-dividend adjustment
   - PermID-resolved, universe share line: each company's US consolidated RIC (LSEG symbology) when it is the universe line (KO.N → KO), else the universe RIC; the other is the fallback (renames: PSKY.OQ → SKYD.K); a series must cover the membership window; rows labelled with the universe RIC
-  - <https://finance.yahoo.com/> via `yfinance` — only the configured `extra_symbols` (`^SP500TR`, `^VIX`, `^IRX`), never universe stocks; `extra-prices` build step writes them to `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`
+  - <https://finance.yahoo.com/> via `yfinance` — only the configured `extra_symbols` (`^SP500TR`, `^VIX`, `^IRX`), never universe stocks; `extra-prices` build step writes them to `data/interim/extra_prices.parquet`; per-symbol cache in `data/raw/yahoo/prices/`; window `yahoo.start`..`universe.end` (same look-back as LSEG)
 - fundamental
   - LSEG data API — quarterly `TR.F.*` raw cache in `data/raw/lseg/fundamentals/` (one long parquet per RIC: `ric, field, value, period_end, fiscal_period, source_date, fund_upd_type, original_announcement_date`; as originally reported, USD; window `lseg.start`..`universe.end` for 36-month lookback); `build/fundamental.py` writes one row per stock-quarter at the availability date above (TTM flows, latest-quarter stocks, market equity from quarter-end cap and closes); output `data/interim/fundamental.parquet`; entered by `align` on the next trading day
 - technical
