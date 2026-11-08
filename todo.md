@@ -12,6 +12,7 @@
   - [x] use PermID's for universe
   - [x] retrieve and process behavioral data
   - [x] select and fetch fundamental variables
+  - [ ] fix adjustment of prices
   - [ ] complete panel data file (date, ric, *features)
   - [ ] perform data check and cleanup (if necessary): missing values, errors (outliers)
   - [ ] exploratory data analysis: basic descriptive statistics, correlation, and standardization of variables
