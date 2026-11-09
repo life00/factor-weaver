@@ -50,6 +50,13 @@ def ic(cs):
 
 ## Interim
 
+### Preview
+
+
+```{python}
+raw.head()
+```
+
 ### Descriptive statistics
 
 ```{python}
