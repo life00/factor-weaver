@@ -8,7 +8,7 @@ Descriptive statistics and correlations of the member-day panel:
 - `data/interim/panel.parquet` (`align`): raw features, NaN kept
 - `data/processed/panel.parquet` (`clean`): features ranked per date to [-1, 1], NaN → 0
 
-(see `src/factor_weaver/data/build/panel.py`). Missing values and outliers are in `explore_panel.qmd`.
+(see `src/factor_weaver/data/build/panel.py`). Missing values and outliers are in `explore_panel_quality.qmd`.
 
 `ret_next` is the member's return over the next trading day (NaN when it is not a member on that day); features of day t are known at the close of t, so their correlation with `ret_next` is the information coefficient (IC).
 

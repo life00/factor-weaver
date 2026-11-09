@@ -16,7 +16,7 @@ trading day of its quarter, missing values kept as NaN.
 - technical, behavioral: values of day d (both known at the close of d)
 - fundamental: the latest report from the trading day after its availability date (an
   after-close filing is first tradable the next day), NaN once older than
-  <align.fundamental_max_age_days>; fund_date: its availability date
+  <align.fundamental_max_age_days>; fund_date: days since its availability date
 
 clean → <clean.out>: each feature ranked per date across that date's members and mapped
 to [-1, 1] (ties averaged), missing → 0, the cross-sectional median
@@ -111,6 +111,7 @@ def align_panel(cfg: dict[str, Any]) -> None:
     age = (panel["date"] - panel["fund_date"]).dt.days
     stale = age > cfg["align"]["fundamental_max_age_days"]
     panel.loc[stale, FUNDAMENTAL_FEATURES] = np.nan
+    panel["fund_date"] = age
 
     panel = panel.loc[:, COLS].sort_values(["date", "ric"]).reset_index(drop=True)
     if len(panel) != len(grid) or panel.duplicated(["date", "ric"]).any():
