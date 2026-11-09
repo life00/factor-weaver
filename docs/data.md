@@ -27,6 +27,7 @@
     - market columns, same for every member on a date, not features: `rf` = `^IRX`$_{t-1}$ / 100 / 252 (cash return over $(t-1, t]$; yield carried over bond-market holidays), `mkt_ret` = `^SP500TR` daily return, `vix` = `^VIX` close of $d$
     - technical, behavioral: value of day $d$
     - fundamentals: from the trading day after the availability date (after-close filings), NaN after 365 days (several missed filings)
+    - `fund_date`: availability date of the report in force
   - normalization (`clean` → `data/processed/panel.parquet`): features ranked per date to [-1, 1], NaN → 0 (`docs/features.md`); `close`/`ret` untouched
 
 ## Flow

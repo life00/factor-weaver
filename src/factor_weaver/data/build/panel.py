@@ -16,7 +16,7 @@ trading day of its quarter, missing values kept as NaN.
 - technical, behavioral: values of day d (both known at the close of d)
 - fundamental: the latest report from the trading day after its availability date (an
   after-close filing is first tradable the next day), NaN once older than
-  <align.fundamental_max_age_days>
+  <align.fundamental_max_age_days>; fund_date: its availability date
 
 clean → <clean.out>: each feature ranked per date across that date's members and mapped
 to [-1, 1] (ties averaged), missing → 0, the cross-sectional median
@@ -41,7 +41,7 @@ log = logging.getLogger(__name__)
 
 RF_SYMBOL, VIX_SYMBOL = "^IRX", "^VIX"
 MARKET = ["rf", "mkt_ret", "vix"]
-FEATURES = [*TECHNICAL_FEATURES, *FUNDAMENTAL_FEATURES, *BEHAVIORAL_FEATURES]
+FEATURES = [*TECHNICAL_FEATURES, *FUNDAMENTAL_FEATURES, "fund_date", *BEHAVIORAL_FEATURES]
 COLS = ["date", "ric", "permid", "close", "ret", *MARKET, *FEATURES]
 
 
@@ -103,12 +103,13 @@ def align_panel(cfg: dict[str, Any]) -> None:
 
     fund = _read(cfg["fundamental"]["out"], ["date", "ric", *FUNDAMENTAL_FEATURES])
     pos = cal.searchsorted(fund["date"].to_numpy(), side="right")
-    fund = fund.loc[pos < len(cal)].rename(columns={"date": "avail"})
+    fund = fund.loc[pos < len(cal)].rename(columns={"date": "fund_date"})
     fund["date"] = cal[pos[pos < len(cal)]].to_numpy()
     # filings on Friday and Saturday both enter on Monday: keep the later report
-    fund = fund.sort_values("avail").drop_duplicates(["ric", "date"], keep="last")
+    fund = fund.sort_values("fund_date").drop_duplicates(["ric", "date"], keep="last")
     panel = pd.merge_asof(panel.sort_values("date"), fund.sort_values("date"), on="date", by="ric")
-    stale = (panel["date"] - panel["avail"]).dt.days > cfg["align"]["fundamental_max_age_days"]
+    age = (panel["date"] - panel["fund_date"]).dt.days
+    stale = age > cfg["align"]["fundamental_max_age_days"]
     panel.loc[stale, FUNDAMENTAL_FEATURES] = np.nan
 
     panel = panel.loc[:, COLS].sort_values(["date", "ric"]).reset_index(drop=True)

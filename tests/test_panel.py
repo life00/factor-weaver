@@ -119,8 +119,11 @@ def test_fundamentals_enter_next_trading_day_and_expire(aligned: pd.DataFrame) -
     a, b = aligned.xs("A"), aligned.xs("B")
     assert np.isnan(a.loc["2020-04-03", "net_share_issuance"])
     assert a.loc["2020-04-06", "net_share_issuance"] == 1.0
+    assert pd.isna(a.loc["2020-04-03", "fund_date"])
+    assert a.loc["2020-04-06", "fund_date"] == pd.Timestamp("2020-04-03")
     assert b.loc["2020-04-14", "book_to_market"] == 3.0  # 365 days old
     assert np.isnan(b.loc["2020-04-15", "book_to_market"])  # 366 days old
+    assert b.loc["2020-04-15", "fund_date"] == pd.Timestamp("2019-04-15")
     assert aligned.xs("C")["asset_growth"].isna().all()
 
 
@@ -142,12 +145,14 @@ def test_clean_ranks_features_and_leaves_prices(tmp_path: Path) -> None:
         df[f] = np.nan
     df["momentum"] = [1.0, 2.0, 2.0, np.nan, 7.0, np.nan]
     df["size"] = [5.0, 9.0, 1.0, 3.0, 0.0, 0.0]
+    df["fund_date"] = pd.to_datetime(["2019-11-01", None, "2019-10-01", "2019-12-01"] + [None] * 2)
     df.to_parquet(cfg["align"]["out"])
 
     clean_panel(cfg)
     out = pd.read_parquet(cfg["clean"]["out"])
     assert out["momentum"].tolist() == [-1.0, 0.5, 0.5, 0.0, 0.0, 0.0]  # ties, NaN, n == 1
     assert out["size"].tolist() == pytest.approx([1 / 3, 1.0, -1.0, -1 / 3, 0.0, 0.0])
+    assert out["fund_date"].tolist() == [0.0, 0.0, -1.0, 1.0, 0.0, 0.0]
     assert not out[FEATURES].isna().any().any()
     keep = ["date", "ric", "close", "ret", "rf", "mkt_ret", "vix"]
     pd.testing.assert_frame_equal(out[keep], df[keep])
