@@ -80,6 +80,8 @@ def cfg(tmp_path):
         ),
         f / "market_cap.parquet",
     )
+    days = pd.bdate_range("2020-01-01", "2021-04-30")
+    _write(pd.DataFrame({"date": days, "symbol": "^SP500TR"}), g / "extra_prices.parquet")
     return {
         "lseg": {
             "start": "2020-01-01",
@@ -88,6 +90,7 @@ def cfg(tmp_path):
             "mapping_out": f / "mapping.parquet",
             "market_cap_out": f / "market_cap.parquet",
         },
+        "yahoo": {"extra_prices_out": g / "extra_prices.parquet"},
         "universe": {
             "top_n": 2,
             "start": "2020-01-01",
@@ -181,3 +184,26 @@ def test_share_classes_rank_once_per_permid(cfg):
     assert list(rows["permid"]) == ["1", "2", "4"]
     assert list(rows["rank"]) == [1, 2, 3]
     assert RIC["D"] not in set(pd.read_parquet(cfg["universe"]["assets_out"])["ric"])
+
+
+def test_member_leaving_on_first_holding_day_is_not_held(cfg):
+    path = cfg["lseg"]["joiners_leavers_out"]
+    ev = pd.read_parquet(path)
+    # B leaves at the open of 2020-07-01, the first trading day after the 2020-06-30 snapshot
+    ev = pd.concat(
+        [
+            ev,
+            pd.DataFrame(
+                {"date": [pd.Timestamp("2020-07-01")], "ric": [RIC["B"]], "change": ["Leaver"]}
+            ),
+        ]
+    )
+    _write(ev, path)
+    c = pd.read_parquet(cfg["lseg"]["constituents_out"])
+    _write(c[c["ric"] != RIC["B"]], cfg["lseg"]["constituents_out"])
+    cfg["universe"]["top_n"] = 3
+    build_universe(cfg)
+    df = pd.read_parquet(cfg["universe"]["universe_out"])
+    by_q = df.groupby("quarter_end")["ric"].apply(set)
+    assert by_q[pd.Timestamp("2020-03-31")] == {"A.N", "B.N", "E.N^X99"}
+    assert by_q[pd.Timestamp("2020-06-30")] == {"A.N", "D.N", "E.N^X99"}  # E backfills B

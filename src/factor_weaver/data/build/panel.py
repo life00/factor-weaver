@@ -18,10 +18,11 @@ trading day of its quarter, missing values kept as NaN.
   after-close filing is first tradable the next day), NaN once older than
   <align.fundamental_max_age_days>; fund_date: days since its availability date
 
-clean → <clean.out>: each feature ranked per date across that date's members and mapped
-to [-1, 1] (ties averaged), missing → 0, the cross-sectional median
-[gu-2020-empirical-asset-pricing-ml]. close, ret and the market columns pass through
-untouched.
+clean → <clean.out>: each feature ranked per date across that date's tradable members
+and mapped to [-1, 1] (ties averaged), missing → 0, the cross-sectional median
+[gu-2020-empirical-asset-pricing-ml]. A member without a close (delisted mid-quarter) is
+not tradable: left out of the ranks, all its features 0. close, ret and the market
+columns pass through untouched; the engine reads close.isna() as delisted.
 """
 
 import logging
@@ -136,9 +137,11 @@ def align_panel(cfg: dict[str, Any]) -> None:
 def clean_panel(cfg: dict[str, Any]) -> None:
     """Write <clean.out>: <align.out> with features ranked to [-1, 1] per date, NaN → 0.
 
+    Rows without a close (delisting tails) are masked: unranked, features 0.
     Reads: <align.out>
     """
     df = _read(cfg["align"]["out"])
+    df.loc[df["close"].isna(), FEATURES] = np.nan  # delisted: not in the cross-section
     for f in FEATURES:
         by_date = df.groupby("date")[f]
         rank = cast(pd.Series, by_date.rank(method="average"))

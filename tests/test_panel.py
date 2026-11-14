@@ -127,14 +127,14 @@ def test_fundamentals_enter_next_trading_day_and_expire(aligned: pd.DataFrame) -
     assert aligned.xs("C")["asset_growth"].isna().all()
 
 
-def test_clean_ranks_features_and_leaves_prices(tmp_path: Path) -> None:
+def test_clean_ranks_tradable_members_and_leaves_prices(tmp_path: Path) -> None:
     cfg = _cfg(tmp_path)
     df = pd.DataFrame(
         {
             "date": pd.to_datetime(["2020-01-02"] * 4 + ["2020-01-03"] * 2),
             "ric": ["A", "B", "C", "D", "A", "B"],
             "permid": ["a", "b", "c", "d", "a", "b"],
-            "close": [1.0, np.nan, 3.0, 4.0, 5.0, 6.0],
+            "close": [1.0, 2.0, 3.0, np.nan, 5.0, 6.0],  # D delisted
             "ret": [np.nan, 0.1, -0.2, 0.3, 0.4, np.nan],
             "rf": [1e-4] * 4 + [2e-4] * 2,
             "mkt_ret": [0.01] * 4 + [np.nan] * 2,
@@ -151,8 +151,8 @@ def test_clean_ranks_features_and_leaves_prices(tmp_path: Path) -> None:
     clean_panel(cfg)
     out = pd.read_parquet(cfg["clean"]["out"])
     assert out["momentum"].tolist() == [-1.0, 0.5, 0.5, 0.0, 0.0, 0.0]  # ties, NaN, n == 1
-    assert out["size"].tolist() == pytest.approx([1 / 3, 1.0, -1.0, -1 / 3, 0.0, 0.0])
-    assert out["fund_date"].tolist() == [0.0, 0.0, -1.0, 1.0, 0.0, 0.0]
+    assert out["size"].tolist() == [0.0, 1.0, -1.0, 0.0, 0.0, 0.0]  # D masked
+    assert out["fund_date"].tolist() == [1.0, 0.0, -1.0, 0.0, 0.0, 0.0]
     assert not out[FEATURES].isna().any().any()
     keep = ["date", "ric", "close", "ret", "rf", "mkt_ret", "vix"]
     pd.testing.assert_frame_equal(out[keep], df[keep])

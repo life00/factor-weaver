@@ -33,7 +33,7 @@ flowchart LR
   - sensitivity bounds: Lesmond et al. (1999), Bikker et al. (2004)
 - universe exits
   - quarter boundary: drop below top-50 rank → forced sale to cash at close (costed)
-  - delisting: forced liquidation to cash at last available price (costed)
+  - delisting: forced liquidation to cash at last available price (costed); a member day with `close.isna()` in the panel = delisted
   - entrants get weight at next rebalance
 - cash
   - daily risk-free return from `^IRX` yield (yield / 100 / 252)

@@ -71,6 +71,20 @@ STEPS: tuple[Step, ...] = (
         outs=("lseg.market_cap_out",),
     ),
     Step(
+        "yahoo-prices",
+        yahoo.fetch_yahoo_prices,
+        "fetch",
+        outs=("yahoo.prices_out",),
+        per_item=True,
+    ),
+    Step(
+        "extra-prices",
+        build_prices.build_extra_prices,
+        "build",
+        ins=("yahoo.prices_out",),
+        outs=("yahoo.extra_prices_out",),
+    ),
+    Step(
         "universe",
         universe.build_universe,
         "build",
@@ -79,6 +93,7 @@ STEPS: tuple[Step, ...] = (
             "lseg.joiners_leavers_out",
             "lseg.mapping_out",
             "lseg.market_cap_out",
+            "yahoo.extra_prices_out",  # trading calendar
         ),
         outs=("universe.universe_out", "universe.assets_out"),
     ),
@@ -99,26 +114,12 @@ STEPS: tuple[Step, ...] = (
         per_item=True,
     ),
     Step(
-        "yahoo-prices",
-        yahoo.fetch_yahoo_prices,
-        "fetch",
-        outs=("yahoo.prices_out",),
-        per_item=True,
-    ),
-    Step(
         "marketpsych",
         marketpsych.fetch_marketpsych,
         "fetch",
         ins=("universe.assets_out",),
         outs=("marketpsych.raw_out",),
         per_item=True,
-    ),
-    Step(
-        "extra-prices",
-        build_prices.build_extra_prices,
-        "build",
-        ins=("yahoo.prices_out",),
-        outs=("yahoo.extra_prices_out",),
     ),
     Step(
         "prices",

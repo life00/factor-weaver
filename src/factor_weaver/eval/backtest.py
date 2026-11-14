@@ -1,7 +1,8 @@
 """Shared daily backtest engine: identical accounting for all models.
 
 Daily order:
-1. liquidate delisted positions to cash at last available price, costed;
+1. liquidate delisted positions (member day with close.isna()) to cash at last
+   available price, costed;
 2. mark risky positions to close; accrue the ^IRX-derived daily return on cash;
 3. quarter boundary: members exiting the top-50 are force-sold to cash at
    close, costed; entrants receive weight at the next rebalance;

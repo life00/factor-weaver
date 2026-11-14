@@ -2,9 +2,11 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from factor_weaver.data import store
+from factor_weaver.data.build.prices import CALENDAR_SYMBOL
 
 log = logging.getLogger(__name__)
 
@@ -27,14 +29,19 @@ def build_universe(cfg: dict[str, Any]) -> None:
     constituent snapshot using joiner/leaver events (Joiner events remove a
     RIC when walking back, Leaver events add it), then ranks active members
     by as-of market cap (latest value at or before the quarter-end) and
-    keeps the top N per quarter. RICs in <universe.exclude_rics> are dropped
+    keeps the top N per quarter. Membership is taken on the first holding day,
+    the first <CALENDAR_SYMBOL> trading day after the quarter-end: S&P announces
+    index changes days ahead, so a member removed at that day's open (a merger
+    closing on the quarter-end) is never held and the next-ranked company takes
+    its slot. RICs in <universe.exclude_rics> are dropped
     before ranking, so the next-ranked company backfills their slot.
     RICs without a PermID mapping are dropped. Candidates are deduplicated by
     LSEG PermID before ranking (company-level market cap), keeping the RIC with
     the most membership quarters, then alphabetical.
 
     Reads: <lseg.constituents_out>, <lseg.joiners_leavers_out>,
-           <lseg.mapping_out>, <lseg.market_cap_out>
+           <lseg.mapping_out>, <lseg.market_cap_out>,
+           <yahoo.extra_prices_out> (<CALENDAR_SYMBOL> dates)
     Writes: <universe.universe_out> (columns: quarter_end, ric, permid, ticker, delisted,
             marketcap, rank). Delisted RICs have no LSEG ticker; their ticker
             is the base RIC symbol (e.g. TWX.N^A01 -> TWX) and delisted=True.
@@ -50,6 +57,7 @@ def build_universe(cfg: dict[str, Any]) -> None:
         "joiners_leavers_out": Path(c["joiners_leavers_out"]),
         "mapping_out": Path(c["mapping_out"]),
         "market_cap_out": Path(c["market_cap_out"]),
+        "extra_prices_out": Path(cfg["yahoo"]["extra_prices_out"]),
     }
     missing = [p for p in inputs.values() if not p.exists()]
     if missing:
@@ -62,12 +70,19 @@ def build_universe(cfg: dict[str, Any]) -> None:
     events = events.sort_values(by="date", ascending=False).reset_index(drop=True)
 
     quarters = pd.date_range(pd.Timestamp(u["start"]), pd.Timestamp(u["end"]), freq="QE")
+    extra = pd.read_parquet(inputs["extra_prices_out"], columns=["date", "symbol"])
+    cal = pd.DatetimeIndex(extra.loc[extra["symbol"] == CALENDAR_SYMBOL, "date"]).sort_values()
+    if cal.empty:
+        raise RuntimeError(f"no {CALENDAR_SYMBOL} rows in {inputs['extra_prices_out']}")
+    pos = cal.searchsorted(quarters, side="right")
+    # first holding day; the quarter-end itself past the calendar's end
+    first = pd.DatetimeIndex(np.where(pos < len(cal), cal[np.minimum(pos, len(cal) - 1)], quarters))
     active: dict[pd.Timestamp, list[str]] = {}
     members = set(anchor)
     i = 0
     baseline = events["date"].min()
-    for q in quarters[::-1]:
-        while i < len(events) and events.loc[i, "date"] > q.to_datetime64():
+    for q, d in zip(quarters[::-1], first[::-1]):
+        while i < len(events) and events.loc[i, "date"] > d.to_datetime64():
             ric, change = events.loc[i, "ric"], events.loc[i, "change"]
             if change == "Joiner" and events.loc[i, "date"] > baseline:
                 members.discard(ric)

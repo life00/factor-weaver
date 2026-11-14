@@ -14,6 +14,7 @@
 - method
   - rolling top 50 companies in S&P500
   - redefine list in each period
+  - membership on the first holding day (first `^SP500TR` trading day after $q$): S&P announces changes days ahead, so a removal effective that day (merger closing on $q$: BAC^I98, GTE, FBF, G, BLS) is never held and the next-ranked company fills the slot
   - exclude RICs with no price content (`universe.exclude_rics`); next-ranked company fills the slot
   - rank companies, not RICs: one RIC per LSEG PermID (share classes like GOOG/GOOGL share one company market cap); keep the RIC with the most S&P membership quarters, then alphabetical; RICs without a PermID are dropped
 - alignment
@@ -22,13 +23,13 @@
   - behavioral: daily calendar rows; 7-day sentiment and abnormal buzz from MarketPsych day $d$ (24 h to 15:30 ET), usable at the close of $d$
   - panel (`align` → `data/interim/panel.parquet`)
     - calendar: `^SP500TR` dates = exchange trading days (index published only when the exchange is open), applied in `build prices`: drops 6 off-calendar LSEG rows (AMGN, CELG 2003 weekends; 1994 holidays), so technicals, the panel and model look-backs share one calendar
-    - rows: every member of the quarter-end $q$ snapshot on every trading day after $q$ up to the next quarter-end; NaN kept (651 delisting-tail days have no price)
+    - rows: every member of the quarter-end $q$ snapshot on every trading day after $q$ up to the next quarter-end; NaN kept (401 mid-quarter delisting-tail days have no price)
     - `close`, `ret` = $P_t / P_{t-1} - 1$ over the previous trading day (from `prices.parquet`)
     - market columns, same for every member on a date, not features: `rf` = `^IRX`$_{t-1}$ / 100 / 252 (cash return over $(t-1, t]$; yield carried over bond-market holidays), `mkt_ret` = `^SP500TR` daily return, `vix` = `^VIX` close of $d$
     - technical, behavioral: value of day $d$
     - fundamentals: from the trading day after the availability date (after-close filings), NaN after 365 days (several missed filings)
     - `fund_date`: days since the availability date of the report in force
-  - normalization (`clean` → `data/processed/panel.parquet`): features ranked per date to [-1, 1], NaN → 0 (`docs/features.md`); `close`/`ret` untouched
+  - normalization (`clean` → `data/processed/panel.parquet`): features ranked per date to [-1, 1] over tradable members, NaN → 0 (`docs/features.md`); delisting tails (no `close`) masked: unranked, features 0; `close`/`ret` untouched
 
 ## Flow
 
@@ -50,7 +51,7 @@ flowchart LR
   raw --> bfund["build: fundamental<br/>quarterly features"]
   raw --> bbeh["build: behavioral<br/>sentiment · attention"]
   raw --> tech["build: technical<br/>daily features"]
-  univ --> interim[("data/interim/")]
+  univ <--> interim[("data/interim/")]
   bextra --> interim
   bprices <--> interim
   bfund <--> interim

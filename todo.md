@@ -14,7 +14,7 @@
   - [x] select and fetch fundamental variables
   - [x] fix adjustment of prices
   - [x] complete panel data file (date, ric, *features)
-  - [ ] what to do with companies which stop existing mid-quarter?
+  - [x] what to do with companies which stop existing mid-quarter?
   - [ ] perform data check and cleanup (if necessary): missing values, errors (outliers)
   - [ ] exploratory data analysis: basic descriptive statistics, correlation, and standardization of variables
   - [ ] technical + fundamental features: reduce frequency
@@ -31,4 +31,4 @@
   - [ ] models/rl/ env, model, ppo, policy adapter
   - [ ] define evaluation with a proper statistical test
 - admin
-  - [ ] schedule a consultation
+  - [x] schedule a consultation
