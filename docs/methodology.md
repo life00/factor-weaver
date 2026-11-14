@@ -10,6 +10,7 @@
 - stock selection
   - dynamic equity universe construction
   - top ranked 50 companies in S&P500 in each period
+    - periodic market-cap-rank reconstitution, as in the Russell indexes (Micheli & Neuman, 2020)
     - if company falls below rank 50 $\to$ assets converted to risk-free
   - any exit (rank drop, delisting) $\to$ forced liquidation to risk-free at
     last available price, with transaction cost; data only records presence/absence

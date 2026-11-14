@@ -60,6 +60,9 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
   - stock selection / dynamic universe
     - Noguer I Alonso & Srivastava (2020): selects top 24 US equities and applies DRL with daily rebalancing; supports selecting a subset of a broad market for RL
     - Betancourt & Chen (2021): handles asset sets that change over time, with built-in transaction cost minimization; supports the dynamic aspect of a rolling universe
+    - Charkhestani & Esfahanipour (2026): actor-critic DRL on the DJIA accounting for time-varying index constituents; equity precedent for a changing RL asset set
+    - Pigorsch & Schäfer (2022): DRL on US stock universes of 10–500 names with data gaps and unequal history lengths; supports an agent whose holdings change over time
+    - Micheli & Neuman (2020): reconstructs Russell index reconstitutions (periodic market-cap ranking) from CRSP and validates against the official indexes; supports rank-based reconstitution as standard index methodology
   - transaction costs
     - Zhang et al. (2020): cost-sensitive DRL portfolio; directly models transaction costs in the reward function
     - Almahdi & Yang (2017): RRL with transaction costs and maximum-drawdown-based reward (224 citations); compares Sharpe, Calmar, Sterling objectives under different cost scenarios
@@ -97,7 +100,7 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
 - Bikker, J. A., Spierdijk, L., & van der Sluis, P. J. (2004). Market Impact Costs of Institutional Equity Trades. _Journal of International Money and Finance_, _23_(1), 57-74. <https://consensus.app/papers/details/9ca69d18e262566fa7871ae196df3f2e/>
 - Bartram, S. M., Lohre, H., Pope, P. F., & Ranganathan, A. (2021). Navigating the factor zoo around the world: An institutional investor perspective. _Journal of Business Economics_, _91_(5), 655-703. <https://doi.org/10.1007/s11573-021-01035-y>
 - Benhenda, M. (2025). FinRL-DeepSeek: LLM-Infused Risk-Sensitive Reinforcement Learning for Trading Agents. _arXiv_. <https://arxiv.org/abs/2502.07393>
-- Charkhestani, A., & Esfahanipour, A. (2026). Behaviorally informed deep reinforcement learning for portfolio optimization with loss aversion and overconfidence. _Scientific Reports_, _16_(1). <https://doi.org/10.1038/s41598-026-35902-x>
+- Charkhestani, A., & Esfahanipour, A. (2026). Behaviorally informed deep reinforcement learning for portfolio optimization with loss aversion and overconfidence. _Scientific Reports_, _16_(1), 6443. <https://doi.org/10.1038/s41598-026-35902-x>
 - Da, Z., Engelberg, J., & Gao, P. (2011). In Search of Attention. _The Journal of Finance_, _66_(5), 1461-1499. <https://doi.org/10.1111/j.1540-6261.2011.01679.x>
 - DeMiguel, V., Garlappi, L., & Uppal, R. (2009). Optimal Versus Naive Diversification: How Inefficient is the 1/N Portfolio Strategy? _Review of Financial Studies_, _22_(5), 1915-1953. <https://doi.org/10.1093/rfs/hhm075>
 - André, E., & Coqueret, G. (2020). Dirichlet policies for reinforced factor portfolios. _arXiv:2011.05381_. <https://arxiv.org/abs/2011.05381>
@@ -123,7 +126,9 @@ Deep reinforcement learning for portfolio management is well-studied, but no exi
 - Ma, Y., et al. (2021). Portfolio optimization with return prediction using deep learning and machine learning. _Expert Systems with Applications_. <https://consensus.app/papers/details/53ce3d44adc952669d5891826a4d44cc/>
 - Markowitz, H. (1952). Portfolio Selection. _The Journal of Finance_, _7_(1), 77-91. <https://doi.org/10.1111/j.1540-6261.1952.tb01525.x>
 - Medhat, M., & Schmeling, M. (2022). Short-term Momentum. _The Review of Financial Studies_, _35_(3), 1480-1526. <https://doi.org/10.1093/rfs/hhab055>
+- Micheli, A., & Neuman, E. (2020). Evidence of Crowding on Russell 3000 Reconstitution Events. _arXiv:2006.07456_. <https://doi.org/10.48550/arXiv.2006.07456>
 - Nazareth, N., & Reddy, Y. V. R. (2023). Financial applications of machine learning: A literature review. _Expert Systems with Applications_, _219_, 119640. <https://doi.org/10.1016/j.eswa.2023.119640>
+- Pigorsch, U., & Schäfer, S. (2022). High-Dimensional Stock Portfolio Trading with Deep Reinforcement Learning. _2022 IEEE Symposium on Computational Intelligence for Financial Engineering and Economics (CIFEr)_. <https://doi.org/10.1109/CIFER52523.2022.9776121>
 - Ranade, D. J., Bhaya, S., Bhimakari, S., Chan, M., Quille, K., & Jaiswal, R. (2026). On explaining the sentiments in prediction of stock movement: An XAI-based analysis. _Proceedings of the 2026 Conference on Human Centred Artificial Intelligence—Education and Practice_, 107–113. <https://doi.org/10.1145/3777490.3777510>
 - Rezaei, M., & Nezamabadi-Pour, H. (2025). A taxonomy of literature reviews and experimental study of deep reinforcement learning in portfolio management. _Artificial Intelligence Review_, _58_(3). <https://doi.org/10.1007/s10462-024-11066-w>
 - Schulman, J., Wolski, F., Dhariwal, P., Radford, A., & Klimov, O. (2017). Proximal Policy Optimization Algorithms. _arXiv:1707.06347_. <https://arxiv.org/abs/1707.06347>
