@@ -59,12 +59,12 @@ def _read(path: str, columns: list[str] | None = None) -> pd.DataFrame:
 def align_panel(cfg: dict[str, Any]) -> None:
     """Write <align.out> (columns: date, ric, permid, close, ret, rf, mkt_ret, vix, *features).
 
-    Reads: <universe.universe_out>, <prices.out>, <yahoo.extra_prices_out>,
-           <technical.out>, <fundamental.out>, <marketpsych.out>
+    Reads: <universe.universe_out>, <prices.out>, <extra_prices.out>,
+           <technical.out>, <fundamental.out>, <behavioral.out>
     """
     u = cfg["universe"]
     start, end = pd.Timestamp(u["start"]), pd.Timestamp(u["end"])
-    extra = _read(cfg["yahoo"]["extra_prices_out"], ["date", "symbol", "close"])
+    extra = _read(cfg["extra_prices"]["out"], ["date", "symbol", "close"])
     wide = extra.pivot(index="date", columns="symbol", values="close")
     absent = {CALENDAR_SYMBOL, RF_SYMBOL, VIX_SYMBOL} - set(wide.columns)
     if absent:
@@ -96,7 +96,7 @@ def align_panel(cfg: dict[str, Any]) -> None:
     px = _read(cfg["prices"]["out"], ["date", "ric", "close", "ret"])
     px[["close", "ret"]] = px[["close", "ret"]].astype("float64")
     tech = _read(cfg["technical"]["out"], ["date", "ric", *TECHNICAL_FEATURES])
-    beh = _read(cfg["marketpsych"]["out"], ["date", "ric", *BEHAVIORAL_FEATURES])
+    beh = _read(cfg["behavioral"]["out"], ["date", "ric", *BEHAVIORAL_FEATURES])
     panel = grid
     for df in (px, tech, beh):
         panel = panel.merge(df, on=["date", "ric"], how="left")

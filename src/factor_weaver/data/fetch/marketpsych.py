@@ -2,7 +2,7 @@
 
 One listing call per configured asset class, then one verbatim payload per listed file
 (monthly `PRO.Archive` zips for complete months, daily `PRO.Live` TSVs for the
-current month) under <marketpsych.raw_out>/files/, each next to a universe-filtered
+current month) under <marketpsych.analytics_out>/files/, each next to a universe-filtered
 parquet slice. Slices are written per file and never re-parsed while present unless
 the pipeline runs with --refresh, which re-parses the kept payloads and downloads
 only the missing ones. Slices are filtered to <universe.assets_out> after re-keying the
@@ -373,7 +373,8 @@ def fetch_marketpsych(cfg: dict[str, Any]) -> None:
     """Download the listed payloads and write one universe-filtered slice per payload.
 
     Reads: <universe.assets_out>, <marketpsych.reference_out>
-    Writes: <marketpsych.raw_out>/files/<filename>, <marketpsych.raw_out>/<filename>.parquet
+    Writes: <marketpsych.analytics_out>/files/<filename>,
+            <marketpsych.analytics_out>/<filename>.parquet
     """
     assets_path = Path(cfg["universe"]["assets_out"])
     if not assets_path.exists():
@@ -383,7 +384,7 @@ def fetch_marketpsych(cfg: dict[str, Any]) -> None:
     permids = pd.Index(sorted(assets["permid"].unique()))
     mp = cfg["marketpsych"]
     datatypes = {d.lower() for d in mp["datatypes"]}
-    raw = Path(mp["raw_out"])
+    raw = Path(mp["analytics_out"])
     payload_dir = raw / "files"
     entries = [
         entry

@@ -41,7 +41,7 @@ def build_universe(cfg: dict[str, Any]) -> None:
 
     Reads: <lseg.constituents_out>, <lseg.joiners_leavers_out>,
            <lseg.mapping_out>, <lseg.market_cap_out>,
-           <yahoo.extra_prices_out> (<CALENDAR_SYMBOL> dates)
+           <extra_prices.out> (<CALENDAR_SYMBOL> dates)
     Writes: <universe.universe_out> (columns: quarter_end, ric, permid, ticker, delisted,
             marketcap, rank). Delisted RICs have no LSEG ticker; their ticker
             is the base RIC symbol (e.g. TWX.N^A01 -> TWX) and delisted=True.
@@ -57,7 +57,7 @@ def build_universe(cfg: dict[str, Any]) -> None:
         "joiners_leavers_out": Path(c["joiners_leavers_out"]),
         "mapping_out": Path(c["mapping_out"]),
         "market_cap_out": Path(c["market_cap_out"]),
-        "extra_prices_out": Path(cfg["yahoo"]["extra_prices_out"]),
+        "extra_prices_out": Path(cfg["extra_prices"]["out"]),
     }
     missing = [p for p in inputs.values() if not p.exists()]
     if missing:

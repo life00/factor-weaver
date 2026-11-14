@@ -76,13 +76,13 @@ def build_prices(cfg: dict[str, Any]) -> None:
     """Calendar-align and dividend-adjust the LSEG caches, merge them into <prices.out>.
 
     Reads: <universe.assets_out>, <lseg.prices_out>, <lseg.dividends_out>,
-           <yahoo.extra_prices_out> (<CALENDAR_SYMBOL> dates)
+           <extra_prices.out> (<CALENDAR_SYMBOL> dates)
     Writes: <prices.out> (columns: date, ric, open..volume, ret)
     """
     assets_path = Path(cfg["universe"]["assets_out"])
     if not assets_path.exists():
         raise FileNotFoundError(f"run the universe step first; missing: {assets_path}")
-    extra_path = Path(cfg["yahoo"]["extra_prices_out"])
+    extra_path = Path(cfg["extra_prices"]["out"])
     if not extra_path.exists():
         raise FileNotFoundError(f"run the extra-prices step first; missing: {extra_path}")
     extra = pd.read_parquet(extra_path, columns=["date", "symbol"])
@@ -139,10 +139,10 @@ def build_prices(cfg: dict[str, Any]) -> None:
 
 
 def build_extra_prices(cfg: dict[str, Any]) -> None:
-    """Merge the configured extra series' Yahoo caches into <yahoo.extra_prices_out>.
+    """Merge the configured extra series' Yahoo caches into <extra_prices.out>.
 
     Reads: <yahoo.prices_out>
-    Writes: <yahoo.extra_prices_out> (columns: date, symbol, open..volume)
+    Writes: <extra_prices.out> (columns: date, symbol, open..volume)
     """
     y = cfg.get("yahoo") or {}
     yahoo_dir = Path(y["prices_out"])
@@ -157,7 +157,7 @@ def build_extra_prices(cfg: dict[str, Any]) -> None:
         if frames
         else pd.DataFrame(columns=pd.Index(EXTRA_COLS))
     )
-    out = Path(y["extra_prices_out"])
+    out = Path(cfg["extra_prices"]["out"])
     store.write_parquet(df, out)
     log.info("wrote %s (%d rows, %d extra symbols)", out, len(df), df["symbol"].nunique())
     missing = [s for s in symbols if s not in set(df["symbol"])]

@@ -56,15 +56,15 @@ def _features(g: pd.DataFrame, days: pd.DatetimeIndex) -> pd.DataFrame:
 
 
 def build_behavioral(cfg: dict[str, Any]) -> None:
-    """Compute <marketpsych.out> as daily (date, ric) feature rows.
+    """Compute <behavioral.out> as daily (date, ric) feature rows.
 
-    Reads: <universe.assets_out>, <marketpsych.raw_out>/*.parquet
-    Writes: <marketpsych.out>
+    Reads: <universe.assets_out>, <marketpsych.analytics_out>/*.parquet
+    Writes: <behavioral.out>
     """
-    raw_dir = Path(cfg["marketpsych"]["raw_out"])
+    raw_dir = Path(cfg["marketpsych"]["analytics_out"])
     caches = sorted(raw_dir.glob("*.parquet"))
     if not caches:
-        raise FileNotFoundError(f"run the marketpsych fetch step first; missing: {raw_dir}")
+        raise FileNotFoundError(f"run fetch step marketpsych-analytics first; missing: {raw_dir}")
     assets_path = Path(cfg["universe"]["assets_out"])
     if not assets_path.exists():
         raise FileNotFoundError(f"run the universe step first; missing: {assets_path}")
@@ -94,7 +94,7 @@ def build_behavioral(cfg: dict[str, Any]) -> None:
         .sort_values(["date", "ric"])
         .reset_index(drop=True)
     )
-    path = Path(cfg["marketpsych"]["out"])
+    path = Path(cfg["behavioral"]["out"])
     store.write_parquet(out, path)
     log.info(
         "wrote %s (%d rows, %d rics, %s..%s)",

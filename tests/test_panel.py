@@ -25,10 +25,10 @@ def _cfg(tmp_path: Path) -> dict[str, Any]:
     return {
         "universe": {"universe_out": p["u"], "start": "2020-03-31", "end": "2020-10-01"},
         "prices": {"out": p["px"]},
-        "yahoo": {"extra_prices_out": p["x"]},
+        "extra_prices": {"out": p["x"]},
         "technical": {"out": p["t"]},
         "fundamental": {"out": p["f"]},
-        "marketpsych": {"out": p["b"]},
+        "behavioral": {"out": p["b"]},
         "align": {"out": p["a"], "fundamental_max_age_days": 365},
         "clean": {"out": p["c"]},
     }
@@ -57,7 +57,7 @@ def aligned(tmp_path: Path) -> pd.DataFrame:
             pd.DataFrame({"date": s.index, "symbol": sym, "close": s.to_numpy()})
             for sym, s in (("^SP500TR", SP), ("^IRX", IRX), ("^VIX", VIX))
         ]
-    ).to_parquet(cfg["yahoo"]["extra_prices_out"])
+    ).to_parquet(cfg["extra_prices"]["out"])
 
     b_days = CAL[CAL <= "2020-05-29"]  # delisted: no prices in June
     prices = pd.concat(  # as build_prices writes them: calendar-aligned, with ret
@@ -72,7 +72,7 @@ def aligned(tmp_path: Path) -> pd.DataFrame:
     pd.concat(
         [_rows(d, r, TECHNICAL_FEATURES, momentum=1.0) for r, d in zip("ABC", (CAL, b_days, CAL))]
     ).to_parquet(cfg["technical"]["out"])
-    _rows(CAL, "A", BEHAVIORAL_FEATURES, sentiment=0.5).to_parquet(cfg["marketpsych"]["out"])
+    _rows(CAL, "A", BEHAVIORAL_FEATURES, sentiment=0.5).to_parquet(cfg["behavioral"]["out"])
     pd.concat(
         [
             _rows(["2020-04-03"], "A", FUNDAMENTAL_FEATURES, net_share_issuance=1.0),  # Friday

@@ -82,7 +82,7 @@ STEPS: tuple[Step, ...] = (
         build_prices.build_extra_prices,
         "build",
         ins=("yahoo.prices_out",),
-        outs=("yahoo.extra_prices_out",),
+        outs=("extra_prices.out",),
     ),
     Step(
         "universe",
@@ -93,7 +93,7 @@ STEPS: tuple[Step, ...] = (
             "lseg.joiners_leavers_out",
             "lseg.mapping_out",
             "lseg.market_cap_out",
-            "yahoo.extra_prices_out",  # trading calendar
+            "extra_prices.out",  # trading calendar
         ),
         outs=("universe.universe_out", "universe.assets_out"),
     ),
@@ -114,11 +114,11 @@ STEPS: tuple[Step, ...] = (
         per_item=True,
     ),
     Step(
-        "marketpsych",
+        "marketpsych-analytics",
         marketpsych.fetch_marketpsych,
         "fetch",
         ins=("universe.assets_out",),
-        outs=("marketpsych.raw_out",),
+        outs=("marketpsych.analytics_out",),
         per_item=True,
     ),
     Step(
@@ -129,7 +129,7 @@ STEPS: tuple[Step, ...] = (
             "universe.assets_out",
             "lseg.prices_out",
             "lseg.dividends_out",
-            "yahoo.extra_prices_out",  # trading calendar
+            "extra_prices.out",  # trading calendar
         ),
         outs=("prices.out",),
     ),
@@ -137,8 +137,8 @@ STEPS: tuple[Step, ...] = (
         "behavioral",
         behavioral.build_behavioral,
         "build",
-        ins=("universe.assets_out", "marketpsych.raw_out"),
-        outs=("marketpsych.out",),
+        ins=("universe.assets_out", "marketpsych.analytics_out"),
+        outs=("behavioral.out",),
     ),
     Step(
         "fundamental",
@@ -171,10 +171,10 @@ STEPS: tuple[Step, ...] = (
         ins=(
             "universe.universe_out",
             "prices.out",
-            "yahoo.extra_prices_out",
+            "extra_prices.out",
             "technical.out",
             "fundamental.out",
-            "marketpsych.out",
+            "behavioral.out",
         ),
         outs=("align.out",),
     ),
@@ -277,7 +277,7 @@ def print_status(cfg: dict[str, Any], phase: str | None = None) -> None:
         paths = ", ".join(str(_path(cfg, k)) for k in step.outs)
         line = Text()
         line.append("ok" if exists else "--", style="green" if exists else "red")
-        line.append(f" {step.name:<20} ")
+        line.append(f" {step.name:<21} ")
         line.append(f"{step.phase:<5}", style="cyan")
         line.append(f" {paths}", style="dim")
         out.print(line)

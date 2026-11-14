@@ -125,9 +125,9 @@ def _cfg(tmp_path, assets_path, raw_dir, start="1998-01-01", end="1998-03-01"):
             "datatypes": ["News_Social"],
             "datacols": ["buzz", "sentiment"],
             "reference_out": str(reference),
-            "raw_out": str(raw_dir),
-            "out": str(tmp_path / "behavioral.parquet"),
+            "analytics_out": str(raw_dir),
         },
+        "behavioral": {"out": str(tmp_path / "behavioral.parquet")},
     }
 
 
@@ -556,7 +556,7 @@ def _assets(tmp_path, rics=("GOOG.OQ",), permids=("5030853586",)):
 def _build(tmp_path, assets_path, raw_dir, start, end):
     cfg = _cfg(tmp_path, assets_path, raw_dir, start=start, end=end)
     build_behavioral(cfg)
-    return pd.read_parquet(cfg["marketpsych"]["out"])
+    return pd.read_parquet(cfg["behavioral"]["out"])
 
 
 def _days(start, n):

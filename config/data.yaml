@@ -11,8 +11,10 @@ lseg:
 yahoo:
   start: "1994-01-01" # same look-back as lseg.start; ^SP500TR doubles as the trading calendar
   prices_out: data/raw/yahoo/prices
-  extra_prices_out: data/interim/extra_prices.parquet
   extra_symbols: ["^SP500TR", "^VIX", "^IRX"] # index/yield series; stock prices are LSEG-only
+
+extra_prices:
+  out: data/interim/extra_prices.parquet
 
 universe:
   top_n: 50
@@ -39,7 +41,7 @@ marketpsych:
   # (CurrentInstrumentIssuerPermid) plus a normalized-name fallback for unlinked legal entities
   # (XOM among them). Where the vendor files a company under an unrelated entity,
   # entity_overrides names it: universe PermID -> MP assetCode, replacing that PermID's own
-  # series. A change needs `data fetch marketpsych --refresh`.
+  # series. A change needs `data fetch marketpsych-analytics --refresh`.
   entity_overrides:
     "5083858869": "5057771033" # LIN.OQ <- Rounderway PLC = pre-2023 Linde plc (EMEA file)
     "5090705090": "4295913071" # PSKY.OQ <- "Viacom Inc": 1999–2005 Viacom news (only member then)
@@ -47,7 +49,9 @@ marketpsych:
   reference_out: data/raw/marketpsych/reference/assets.parquet
   # the file API exposes no asset/datatype/column selection: whole months (Archive zips) and
   # single days (Live TSVs) are downloaded, then clipped to [start, end) by the build step
-  raw_out: data/raw/marketpsych
+  analytics_out: data/raw/marketpsych/analytics
+
+behavioral:
   out: data/interim/behavioral.parquet
 
 prices:

@@ -2,7 +2,7 @@
 
 Each symbol is cached as one parquet file under <yahoo.prices_out> (file
 existence means cached; `--refresh` or deleting the file refetches). The
-extra-prices build step merges them into <yahoo.extra_prices_out>.
+extra-prices build step merges them into <extra_prices.out>.
 """
 
 import logging

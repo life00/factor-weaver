@@ -128,7 +128,7 @@ def _price_cfg(tmp_path, calendar: str = "2020-01-02") -> dict:
     return {
         "universe": {"assets_out": tmp_path / "assets.parquet"},
         "lseg": {"prices_out": tmp_path / "lseg", "dividends_out": tmp_path / "divs"},
-        "yahoo": {"extra_prices_out": tmp_path / "extra_prices.parquet"},
+        "extra_prices": {"out": tmp_path / "extra_prices.parquet"},
         "prices": {"out": tmp_path / "prices.parquet"},
     }
 
@@ -162,9 +162,9 @@ def test_build_extra_prices_filters_and_writes(tmp_path):
     cfg = {
         "yahoo": {
             "prices_out": tmp_path / "yahoo",
-            "extra_prices_out": tmp_path / "extra_prices.parquet",
             "extra_symbols": ["^VIX"],
-        }
+        },
+        "extra_prices": {"out": tmp_path / "extra_prices.parquet"},
     }
     build_extra_prices(cfg)
     out = pd.read_parquet(tmp_path / "extra_prices.parquet")

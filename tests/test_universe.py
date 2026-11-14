@@ -90,7 +90,7 @@ def cfg(tmp_path):
             "mapping_out": f / "mapping.parquet",
             "market_cap_out": f / "market_cap.parquet",
         },
-        "yahoo": {"extra_prices_out": g / "extra_prices.parquet"},
+        "extra_prices": {"out": g / "extra_prices.parquet"},
         "universe": {
             "top_n": 2,
             "start": "2020-01-01",
